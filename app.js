@@ -48,6 +48,10 @@ const HOME_COLS = 30;
 const HOME_ROWS = 20;
 const HOME_WIDTH = HOME_COLS * TILE;
 const HOME_HEIGHT = HOME_ROWS * TILE;
+const CRYSTAL_COLS = 46;
+const CRYSTAL_ROWS = 34;
+const CRYSTAL_WIDTH = CRYSTAL_COLS * TILE;
+const CRYSTAL_HEIGHT = CRYSTAL_ROWS * TILE;
 
 const keys = new Set();
 const camera = { x: 0, y: 0 };
@@ -65,6 +69,7 @@ let saveNoticeTimer = 0;
 let audioContext = null;
 let musicGain = null;
 let musicTimer = null;
+let lastErrorMessage = "";
 
 const quest = {
   status: "notStarted",
@@ -90,6 +95,24 @@ const questBook = {
   letterDelivered: false
 };
 
+const dimensionQuest = {
+  entered: false,
+  status: "notStarted",
+  activatedCrystals: 0,
+  totalCrystals: 3,
+  bridgeOpen: false,
+  chestOpened: false,
+  missionDone: false
+};
+
+const dimensionParticles = Array.from({ length: 70 }, (_, index) => ({
+  x: ((index * 97) % CRYSTAL_WIDTH),
+  y: ((index * 151) % CRYSTAL_HEIGHT),
+  size: 2 + (index % 3),
+  speed: 0.4 + (index % 5) * 0.12,
+  phase: index * 0.73
+}));
+
 const player = {
   name: "Lia",
   x: 30 * TILE,
@@ -112,6 +135,7 @@ playerNameEl.textContent = player.name;
 // G = grama, F = floresta, D = caminho, P = praca, W = agua
 const worldMap = createWorldMap();
 const homeMap = createHomeMap();
+const crystalDimensionMap = createCrystalDimensionMap();
 
 function createWorldMap() {
   const map = Array.from({ length: MAP_ROWS }, () => Array(MAP_COLS).fill("G"));
@@ -155,10 +179,42 @@ function createHomeMap() {
   return map;
 }
 
+function createCrystalDimensionMap() {
+  const map = Array.from({ length: CRYSTAL_ROWS }, () => Array(CRYSTAL_COLS).fill("C"));
+
+  fillCrystalRect(map, 0, 0, CRYSTAL_COLS, 1, "M");
+  fillCrystalRect(map, 0, CRYSTAL_ROWS - 1, CRYSTAL_COLS, 1, "M");
+  fillCrystalRect(map, 0, 0, 1, CRYSTAL_ROWS, "M");
+  fillCrystalRect(map, CRYSTAL_COLS - 1, 0, 1, CRYSTAL_ROWS, "M");
+
+  fillCrystalRect(map, 20, 27, 7, 5, "Q");
+  fillCrystalRect(map, 21, 13, 5, 16, "Q");
+  fillCrystalRect(map, 9, 18, 28, 5, "Q");
+  fillCrystalRect(map, 17, 7, 12, 7, "Q");
+  fillCrystalRect(map, 21, 4, 5, 5, "Q");
+
+  paintCrystalEllipse(map, 9, 10, 6, 4, "M");
+  paintCrystalEllipse(map, 36, 9, 6, 4, "M");
+  paintCrystalEllipse(map, 37, 25, 6, 4, "M");
+  paintCrystalEllipse(map, 8, 27, 4, 3, "M");
+
+  return map;
+}
+
 function fillHomeRect(map, startX, startY, width, height, tile) {
   for (let y = startY; y < startY + height; y++) {
     for (let x = startX; x < startX + width; x++) {
       if (x >= 0 && y >= 0 && x < HOME_COLS && y < HOME_ROWS) {
+        map[y][x] = tile;
+      }
+    }
+  }
+}
+
+function fillCrystalRect(map, startX, startY, width, height, tile) {
+  for (let y = startY; y < startY + height; y++) {
+    for (let x = startX; x < startX + width; x++) {
+      if (x >= 0 && y >= 0 && x < CRYSTAL_COLS && y < CRYSTAL_ROWS) {
         map[y][x] = tile;
       }
     }
@@ -187,6 +243,18 @@ function paintEllipse(map, centerX, centerY, radiusX, radiusY, tile) {
   }
 }
 
+function paintCrystalEllipse(map, centerX, centerY, radiusX, radiusY, tile) {
+  for (let y = centerY - radiusY; y <= centerY + radiusY; y++) {
+    for (let x = centerX - radiusX; x <= centerX + radiusX; x++) {
+      const dx = (x - centerX) / radiusX;
+      const dy = (y - centerY) / radiusY;
+      if (dx * dx + dy * dy <= 1 && x >= 0 && y >= 0 && x < CRYSTAL_COLS && y < CRYSTAL_ROWS) {
+        map[y][x] = tile;
+      }
+    }
+  }
+}
+
 const villageObjects = [
   playerHouse(24, 33),
   shop(42, 6),
@@ -199,6 +267,7 @@ const villageObjects = [
   house(27, 12, "Padaria"),
   house(35, 14, "Atelie"),
   well(31, 21),
+  portal(34, 24),
   portal(55, 32),
   bench(8, 34, "horizontal"),
   bench(13, 34, "horizontal"),
@@ -228,7 +297,8 @@ const villageObjects = [
   sign(25, 36, "Casa da Lia: seu ponto de descanso depois das aventuras."),
   sign(44, 10, "Loja Estrela Azul: pocoes, mapas e biscoitos de viagem."),
   sign(8, 33, "Parque da Vila: respire fundo e siga explorando."),
-  sign(56, 38, "Portal antigo: a energia ainda esta adormecida."),
+  sign(36, 27, "PORTAL NOVO: pressione E perto do brilho para entrar na Dimensao Cristalina."),
+  sign(56, 38, "Portal antigo: o brilho agora leva para a Dimensao Cristalina."),
 
   npc(29, 20, "Nico", "Nico: Preciso de ajuda! Encontre 3 cristais brilhantes pela vila e volte aqui."),
   npc(44, 24, "Ari", "Ari: O lago cresceu depois das ultimas chuvas. Nao tente atravessar."),
@@ -295,6 +365,32 @@ const mayorInteriorObjects = [
   interiorPlant(4, 12),
   npc(14, 9, "Prefeito", "Prefeito: Gabryel Garcia o Brabo protege esta vila!", "mayor"),
   sign(14, 17, "Saida da casa do prefeito: caminhe para baixo para voltar a vila.")
+];
+
+const crystalDimensionObjects = [
+  block(0, 0, CRYSTAL_COLS, 1),
+  block(0, CRYSTAL_ROWS - 1, CRYSTAL_COLS, 1),
+  block(0, 0, 1, CRYSTAL_ROWS),
+  block(CRYSTAL_COLS - 1, 0, 1, CRYSTAL_ROWS),
+  dimensionPortal(22, 29, "exit"),
+  dimensionBlocker(21, 13, 5, 2),
+
+  npc(20, 25, "Orion", "Orion: Ative tres cristais magicos para abrir o caminho secreto.", "dimensionGuide"),
+  npc(28, 17, "Nyx", "Nyx: Esta dimensao guarda ecos da vila. As pedras flutuam quando alguem desperta os cristais.", "dimensionMystic"),
+
+  dimensionCrystal(12, 20, 0, "Cristal da Memoria: ele mostra a vila refletida em luz roxa."),
+  dimensionCrystal(34, 20, 1, "Cristal do Caminho: linhas brilhantes apontam para o norte."),
+  dimensionCrystal(23, 16, 2, "Cristal do Portal: um som baixo vibra dentro dele."),
+  dimensionChest(22, 6),
+  dimensionSign(20, 28, "Inscricao: tres luzes acordam a ponte perdida."),
+  talkingStone(31, 25, "Pedra flutuante: quem entra deve lembrar o caminho de volta."),
+  magicFountain(16, 9, "Fonte magica: a agua brilha, mas ainda bloqueia a passagem."),
+
+  largeCrystal(7, 17), largeCrystal(39, 17), largeCrystal(18, 12), largeCrystal(28, 12),
+  largeCrystal(15, 25), largeCrystal(31, 28), largeCrystal(10, 6), largeCrystal(40, 7),
+  strangeTree(5, 23), strangeTree(39, 26), strangeTree(6, 14), strangeTree(36, 14),
+  floatingRock(14, 18), floatingRock(32, 18), floatingRock(18, 24), floatingRock(27, 24),
+  floatingRock(20, 9), floatingRock(27, 9)
 ];
 
 let objects = villageObjects;
@@ -409,12 +505,134 @@ function bench(tileX, tileY, direction) {
 function portal(tileX, tileY) {
   return {
     type: "portal",
+    role: "crystalEntry",
     x: tileX * TILE,
     y: tileY * TILE - 8,
     width: TILE * 2,
     height: TILE * 3,
     solid: false,
-    message: "Portal antigo: ele vibra baixinho, como se esperasse uma chave magica."
+    message: "Pressione E para entrar no portal."
+  };
+}
+
+function dimensionPortal(tileX, tileY, role) {
+  return {
+    type: "dimensionPortal",
+    role,
+    x: tileX * TILE,
+    y: tileY * TILE - 8,
+    width: TILE * 2,
+    height: TILE * 3,
+    solid: false,
+    message: role === "exit" ? "Portal de volta: pressione E para retornar a vila." : "Portal cristalino."
+  };
+}
+
+function dimensionBlocker(tileX, tileY, widthTiles, heightTiles) {
+  return {
+    type: "dimensionBlocker",
+    x: tileX * TILE,
+    y: tileY * TILE,
+    width: widthTiles * TILE,
+    height: heightTiles * TILE,
+    solid: true
+  };
+}
+
+function dimensionCrystal(tileX, tileY, crystalIndex, message) {
+  return {
+    type: "dimensionCrystal",
+    crystalIndex,
+    x: tileX * TILE + 6,
+    y: tileY * TILE,
+    width: 22,
+    height: 32,
+    solid: false,
+    message,
+    activated: false,
+    activatedAt: 0
+  };
+}
+
+function dimensionChest(tileX, tileY) {
+  return {
+    type: "dimensionChest",
+    x: tileX * TILE,
+    y: tileY * TILE + 8,
+    width: TILE * 2,
+    height: TILE,
+    solid: true,
+    opened: false,
+    message: "Bau especial: a fechadura tem tres marcas de cristal."
+  };
+}
+
+function dimensionSign(tileX, tileY, message) {
+  return {
+    type: "dimensionSign",
+    x: tileX * TILE + 8,
+    y: tileY * TILE + 6,
+    width: 18,
+    height: 24,
+    solid: true,
+    message
+  };
+}
+
+function talkingStone(tileX, tileY, message) {
+  return {
+    type: "talkingStone",
+    x: tileX * TILE + 4,
+    y: tileY * TILE + 8,
+    width: 24,
+    height: 20,
+    solid: true,
+    message
+  };
+}
+
+function magicFountain(tileX, tileY, message) {
+  return {
+    type: "magicFountain",
+    x: tileX * TILE,
+    y: tileY * TILE,
+    width: TILE * 2,
+    height: TILE * 2,
+    solid: true,
+    message
+  };
+}
+
+function largeCrystal(tileX, tileY) {
+  return {
+    type: "largeCrystal",
+    x: tileX * TILE + 2,
+    y: tileY * TILE - 4,
+    width: 28,
+    height: 42,
+    solid: true
+  };
+}
+
+function strangeTree(tileX, tileY) {
+  return {
+    type: "strangeTree",
+    x: tileX * TILE,
+    y: tileY * TILE - 8,
+    width: TILE,
+    height: TILE * 2,
+    solid: true
+  };
+}
+
+function floatingRock(tileX, tileY) {
+  return {
+    type: "floatingRock",
+    x: tileX * TILE + 5,
+    y: tileY * TILE + 8,
+    width: 22,
+    height: 18,
+    solid: true
   };
 }
 
@@ -625,12 +843,24 @@ function rectsOverlap(a, b) {
 }
 
 function isWaterAt(tileX, tileY) {
+  if (currentScene === "crystalDimension") {
+    if (tileX < 0 || tileY < 0 || tileX >= CRYSTAL_COLS || tileY >= CRYSTAL_ROWS) {
+      return true;
+    }
+    return crystalDimensionMap[tileY][tileX] === "M";
+  }
+
   if (currentScene !== "village") return false;
 
   if (tileX < 0 || tileY < 0 || tileX >= MAP_COLS || tileY >= MAP_ROWS) {
     return true;
   }
   return worldMap[tileY][tileX] === "W";
+}
+
+function isColliderActive(obj) {
+  if (obj.type === "dimensionBlocker" && dimensionQuest.bridgeOpen) return false;
+  return obj.solid;
 }
 
 function hitsWater(rect) {
@@ -665,7 +895,7 @@ function canMoveTo(nextX, nextY) {
 
   if (hitsWater(rect)) return false;
 
-  return !colliders.some((obj) => rectsOverlap(rect, obj));
+  return !colliders.some((obj) => isColliderActive(obj) && rectsOverlap(rect, obj));
 }
 
 function canEntityMoveTo(entity, nextX, nextY) {
@@ -682,23 +912,28 @@ function canEntityMoveTo(entity, nextX, nextY) {
     return false;
   }
 
-  if (currentScene === "village" && hitsWater(rect)) return false;
+  if ((currentScene === "village" || currentScene === "crystalDimension") && hitsWater(rect)) return false;
 
-  return !colliders.some((obj) => obj !== entity && obj.type !== "enemy" && rectsOverlap(rect, obj));
+  return !colliders.some((obj) => obj !== entity && obj.type !== "enemy" && isColliderActive(obj) && rectsOverlap(rect, obj));
 }
 
 function getSceneWidth() {
-  return currentScene === "village" ? WORLD_WIDTH : HOME_WIDTH;
+  if (currentScene === "village") return WORLD_WIDTH;
+  if (currentScene === "crystalDimension") return CRYSTAL_WIDTH;
+  return HOME_WIDTH;
 }
 
 function getSceneHeight() {
-  return currentScene === "village" ? WORLD_HEIGHT : HOME_HEIGHT;
+  if (currentScene === "village") return WORLD_HEIGHT;
+  if (currentScene === "crystalDimension") return CRYSTAL_HEIGHT;
+  return HOME_HEIGHT;
 }
 
 function getSceneName() {
   if (currentScene === "home") return "Casa";
   if (currentScene === "shopInterior") return "Loja";
   if (currentScene === "mayorInterior") return "Prefeito";
+  if (currentScene === "crystalDimension") return "Dimensao Cristalina";
   return "Vila";
 }
 
@@ -707,6 +942,7 @@ function setActiveScene(scene) {
   if (scene === "home") objects = homeObjects;
   else if (scene === "shopInterior") objects = shopInteriorObjects;
   else if (scene === "mayorInterior") objects = mayorInteriorObjects;
+  else if (scene === "crystalDimension") objects = crystalDimensionObjects;
   else objects = villageObjects;
   colliders = objects.filter((obj) => obj.solid);
   interactables = objects.filter((obj) => obj.message);
@@ -758,6 +994,28 @@ function exitMayorInterior() {
   player.x = 37 * TILE + 12;
   player.y = 11 * TILE + 18;
   player.direction = "down";
+}
+
+function enterCrystalDimension() {
+  lastVillagePosition = { x: player.x, y: player.y };
+  dimensionQuest.entered = true;
+  setActiveScene("crystalDimension");
+  player.x = 22 * TILE + 16;
+  player.y = 30 * TILE;
+  player.direction = "up";
+  playSound("portal");
+  showDialogMessage("Voce atravessou o portal e chegou na Dimensao Cristalina.");
+  updateQuestProgress();
+}
+
+function exitCrystalDimension() {
+  setActiveScene("village");
+  player.x = 35 * TILE;
+  player.y = 27 * TILE;
+  player.direction = "down";
+  playSound("portal");
+  showDialogMessage("O portal devolveu voce para a vila.");
+  updateQuestProgress();
 }
 
 function handleMapTransitions() {
@@ -943,10 +1201,12 @@ function draw() {
   ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
 
   drawMap();
+  if (currentScene === "crystalDimension") drawDimensionAmbient();
 
   const visibleObjects = objects.filter((obj) => {
     if (obj.type === "crystal" || obj.type === "collectible") return !obj.collected;
     if (obj.type === "enemy") return obj.alive;
+    if (obj.type === "dimensionBlocker" && dimensionQuest.bridgeOpen) return false;
     return obj.type !== "block";
   });
   const drawables = [...visibleObjects, { type: "player", y: player.y, height: player.height }];
@@ -963,9 +1223,20 @@ function draw() {
 }
 
 function drawMap() {
-  const activeMap = currentScene === "village" ? worldMap : homeMap;
-  const cols = currentScene === "village" ? MAP_COLS : HOME_COLS;
-  const rows = currentScene === "village" ? MAP_ROWS : HOME_ROWS;
+  let activeMap = homeMap;
+  let cols = HOME_COLS;
+  let rows = HOME_ROWS;
+
+  if (currentScene === "village") {
+    activeMap = worldMap;
+    cols = MAP_COLS;
+    rows = MAP_ROWS;
+  } else if (currentScene === "crystalDimension") {
+    activeMap = crystalDimensionMap;
+    cols = CRYSTAL_COLS;
+    rows = CRYSTAL_ROWS;
+  }
+
   const startCol = Math.floor(camera.x / TILE) - 1;
   const endCol = Math.ceil((camera.x + canvas.width) / TILE) + 1;
   const startRow = Math.floor(camera.y / TILE) - 1;
@@ -986,6 +1257,9 @@ function drawMap() {
       else if (tile === "I") drawInteriorFloor(px, py, x, y);
       else if (tile === "B") drawInteriorWall(px, py, x, y);
       else if (tile === "R") drawRug(px, py, x, y);
+      else if (tile === "C") drawCrystalFloor(px, py, x, y);
+      else if (tile === "Q") drawCrystalPath(px, py, x, y);
+      else if (tile === "M") drawMagicWater(px, py, x, y);
       else drawGrass(px, py, x, y);
     }
   }
@@ -1052,6 +1326,53 @@ function drawWater(x, y, tileX, tileY) {
   ctx.fillRect(x, y + TILE - 3, TILE, 3);
 }
 
+function drawCrystalFloor(x, y, tileX, tileY) {
+  const pulse = Math.sin(performance.now() / 1200 + tileX * 0.3 + tileY * 0.2) * 10;
+  ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#34205f" : "#2a1a52";
+  ctx.fillRect(x, y, TILE, TILE);
+  ctx.fillStyle = `rgba(124, ${84 + pulse}, 220, 0.18)`;
+  if ((tileX * 3 + tileY * 5) % 6 === 0) ctx.fillRect(x + 8, y + 9, 5, 5);
+  if ((tileX * 7 + tileY * 2) % 8 === 0) ctx.fillRect(x + 21, y + 20, 6, 3);
+}
+
+function drawCrystalPath(x, y, tileX, tileY) {
+  ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#5a3d86" : "#50357c";
+  ctx.fillRect(x, y, TILE, TILE);
+  ctx.fillStyle = "rgba(222, 194, 255, 0.2)";
+  ctx.fillRect(x + 6, y + 7, 10, 3);
+  ctx.fillRect(x + 18, y + 21, 8, 3);
+  ctx.strokeStyle = "rgba(25, 17, 45, 0.45)";
+  ctx.strokeRect(x + 0.5, y + 0.5, TILE - 1, TILE - 1);
+}
+
+function drawMagicWater(x, y, tileX, tileY) {
+  const wave = Math.sin(performance.now() / 300 + tileX + tileY) * 2;
+  ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#3d48c9" : "#3341aa";
+  ctx.fillRect(x, y, TILE, TILE);
+  ctx.fillStyle = "rgba(112, 242, 255, 0.7)";
+  ctx.fillRect(x + 5, y + 10 + wave, 10, 3);
+  ctx.fillRect(x + 18, y + 19 - wave, 9, 3);
+  ctx.fillStyle = "rgba(188, 111, 255, 0.3)";
+  ctx.fillRect(x, y + TILE - 4, TILE, 4);
+}
+
+function drawDimensionAmbient() {
+  const time = performance.now() / 1000;
+  const alpha = 0.06 + Math.sin(time * 0.8) * 0.025;
+
+  if (dimensionQuest.bridgeOpen) drawCrystalBridge();
+
+  ctx.fillStyle = `rgba(141, 75, 224, ${alpha})`;
+  ctx.fillRect(camera.x, camera.y, canvas.width, canvas.height);
+
+  for (const particle of dimensionParticles) {
+    const px = particle.x + Math.sin(time * particle.speed + particle.phase) * 14;
+    const py = particle.y + Math.cos(time * particle.speed + particle.phase) * 10;
+    ctx.fillStyle = particle.size === 2 ? "rgba(129, 239, 255, 0.55)" : "rgba(255, 242, 100, 0.45)";
+    ctx.fillRect(px, py, particle.size, particle.size);
+  }
+}
+
 function drawInteriorFloor(x, y, tileX, tileY) {
   ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#f0c686" : "#e7b978";
   ctx.fillRect(x, y, TILE, TILE);
@@ -1084,6 +1405,16 @@ function drawObject(obj) {
   if (obj.type === "well") drawWell(obj);
   if (obj.type === "bench") drawBench(obj);
   if (obj.type === "portal") drawPortal(obj);
+  if (obj.type === "dimensionPortal") drawPortal(obj);
+  if (obj.type === "dimensionBlocker") drawDimensionBlocker(obj);
+  if (obj.type === "dimensionCrystal") drawDimensionCrystal(obj);
+  if (obj.type === "dimensionChest") drawDimensionChest(obj);
+  if (obj.type === "dimensionSign") drawDimensionSign(obj);
+  if (obj.type === "talkingStone") drawTalkingStone(obj);
+  if (obj.type === "magicFountain") drawMagicFountain(obj);
+  if (obj.type === "largeCrystal") drawLargeCrystal(obj);
+  if (obj.type === "strangeTree") drawStrangeTree(obj);
+  if (obj.type === "floatingRock") drawFloatingRock(obj);
   if (obj.type === "secretStone") drawSecretStone(obj);
   if (obj.type === "cave") drawCave(obj);
   if (obj.type === "bed") drawBed(obj);
@@ -1229,18 +1560,165 @@ function drawBench(obj) {
 
 function drawPortal(obj) {
   const pulse = Math.sin(performance.now() / 260) * 4;
+  const time = performance.now();
+  const mainColor = obj.type === "dimensionPortal" ? "#ff72dc" : "#55e8ff";
+  const lightColor = obj.type === "dimensionPortal" ? "#ffe4fb" : "#e9ffff";
   const x = obj.x;
   const y = obj.y;
 
-  ctx.fillStyle = "rgba(85, 232, 255, 0.25)";
+  ctx.fillStyle = obj.type === "dimensionPortal" ? "rgba(255, 114, 220, 0.24)" : "rgba(85, 232, 255, 0.25)";
   ctx.fillRect(x + 5, y + 22, 54, 66);
   pixelRect(x + 4, y + 14, 12, 74, "#8a8da2");
   pixelRect(x + 48, y + 14, 12, 74, "#8a8da2");
   pixelRect(x + 8, y + 8, 48, 12, "#8a8da2");
-  ctx.fillStyle = "#55e8ff";
+
+  ctx.save();
+  ctx.translate(x + 32, y + 55);
+  ctx.rotate(time / 900);
+  ctx.strokeStyle = mainColor;
+  ctx.lineWidth = 3;
+  ctx.strokeRect(-13, -22, 26, 44);
+  ctx.restore();
+
+  ctx.fillStyle = mainColor;
   ctx.fillRect(x + 21, y + 28 + pulse, 22, 44 - pulse);
-  ctx.fillStyle = "#e9ffff";
+  ctx.fillStyle = lightColor;
   ctx.fillRect(x + 28, y + 36 + pulse, 8, 24);
+
+  for (let i = 0; i < 8; i++) {
+    const angle = time / 520 + i * 0.8;
+    const px = x + 32 + Math.cos(angle) * (28 + i % 2 * 7);
+    const py = y + 54 + Math.sin(angle) * (34 + i % 3 * 4);
+    ctx.fillStyle = i % 2 === 0 ? mainColor : lightColor;
+    ctx.fillRect(px, py, 3, 3);
+  }
+}
+
+function drawCrystalBridge() {
+  const x = 21 * TILE;
+  const y = 13 * TILE;
+  const width = 5 * TILE;
+  const height = 2 * TILE;
+
+  ctx.fillStyle = "rgba(255, 242, 100, 0.2)";
+  ctx.fillRect(x - 4, y - 4, width + 8, height + 8);
+  pixelRect(x, y + 6, width, height - 12, "#8f6ec9", "#24193f");
+  ctx.fillStyle = "#bba0ff";
+  for (let ix = x + 12; ix < x + width - 8; ix += 24) {
+    ctx.fillRect(ix, y + 12, 4, height - 24);
+  }
+}
+
+function drawDimensionBlocker(obj) {
+  if (dimensionQuest.bridgeOpen) return;
+
+  const shimmer = Math.sin(performance.now() / 180) * 3;
+  ctx.fillStyle = "rgba(14, 9, 30, 0.55)";
+  ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+  for (let x = obj.x + 8; x < obj.x + obj.width; x += 24) {
+    pixelRect(x, obj.y + 8 + shimmer, 14, 40, "#6a39c7", "#1b1336");
+    ctx.fillStyle = "#c7fcff";
+    ctx.fillRect(x + 5, obj.y + 13 + shimmer, 4, 10);
+  }
+}
+
+function drawDimensionCrystal(obj) {
+  const glow = obj.activated ? 0.45 : 0.22;
+  const pulse = Math.sin(performance.now() / 220 + obj.crystalIndex) * 3;
+  const flash = performance.now() - obj.activatedAt < 650 ? 8 : 0;
+
+  ctx.fillStyle = `rgba(129, 239, 255, ${glow})`;
+  ctx.fillRect(obj.x - 6 - flash, obj.y + 4 - flash, obj.width + 12 + flash * 2, obj.height + 8 + flash * 2);
+  ctx.fillStyle = "#1b1336";
+  ctx.fillRect(obj.x + 7, obj.y, 8, 4);
+  ctx.fillRect(obj.x + 3, obj.y + 4, 16, 6);
+  ctx.fillRect(obj.x, obj.y + 10, 22, 15);
+  ctx.fillRect(obj.x + 6, obj.y + 25, 10, 7);
+  ctx.fillStyle = obj.activated ? "#fff264" : "#55e8ff";
+  ctx.fillRect(obj.x + 8, obj.y + 3 + pulse, 6, 5);
+  ctx.fillRect(obj.x + 5, obj.y + 9 + pulse, 12, 15);
+  ctx.fillRect(obj.x + 9, obj.y + 24 + pulse, 4, 6);
+  ctx.fillStyle = "#e9ffff";
+  ctx.fillRect(obj.x + 12, obj.y + 10 + pulse, 3, 8);
+}
+
+function drawDimensionChest(obj) {
+  const opened = obj.opened || dimensionQuest.chestOpened;
+  pixelRect(obj.x, obj.y + 12, obj.width, 20, opened ? "#a97146" : "#7f543b", "#1b1336");
+  ctx.fillStyle = "#fff264";
+  ctx.fillRect(obj.x + obj.width / 2 - 4, obj.y + 20, 8, 7);
+  if (opened) {
+    pixelRect(obj.x + 3, obj.y, obj.width - 6, 16, "#d69b5e", "#1b1336");
+    ctx.fillStyle = "rgba(255, 242, 100, 0.6)";
+    ctx.fillRect(obj.x + 12, obj.y - 12, obj.width - 24, 12);
+  } else {
+    pixelRect(obj.x + 3, obj.y + 4, obj.width - 6, 15, "#b87955", "#1b1336");
+  }
+}
+
+function drawDimensionSign(obj) {
+  pixelRect(obj.x + 7, obj.y + 10, 5, 18, "#6d4a8d", "#1b1336");
+  pixelRect(obj.x, obj.y, 20, 14, "#bba0ff", "#1b1336");
+  ctx.fillStyle = "#fff264";
+  ctx.fillRect(obj.x + 5, obj.y + 5, 10, 2);
+}
+
+function drawTalkingStone(obj) {
+  pixelRect(obj.x, obj.y + 4, obj.width, obj.height, "#8a8da2", "#1b1336");
+  ctx.fillStyle = "#55e8ff";
+  ctx.fillRect(obj.x + 8, obj.y + 1, 8, 5);
+  ctx.fillStyle = "#1b1336";
+  ctx.fillRect(obj.x + 6, obj.y + 13, 4, 3);
+  ctx.fillRect(obj.x + 15, obj.y + 13, 4, 3);
+}
+
+function drawMagicFountain(obj) {
+  pixelRect(obj.x + 8, obj.y + 24, obj.width - 16, 25, "#6d5c75", "#1b1336");
+  ctx.fillStyle = "#55e8ff";
+  ctx.fillRect(obj.x + 20, obj.y + 8, 24, 24);
+  ctx.fillStyle = "rgba(255, 242, 100, 0.45)";
+  ctx.fillRect(obj.x + 26, obj.y + 2, 12, 12);
+  ctx.fillStyle = "#3d48c9";
+  ctx.fillRect(obj.x + 18, obj.y + 30, 28, 10);
+}
+
+function drawLargeCrystal(obj) {
+  const pulse = Math.sin(performance.now() / 300 + obj.x) * 2;
+  ctx.fillStyle = "rgba(129, 239, 255, 0.25)";
+  ctx.fillRect(obj.x - 5, obj.y + 8, obj.width + 10, obj.height);
+  ctx.fillStyle = "#1b1336";
+  ctx.fillRect(obj.x + 10, obj.y, 8, 6);
+  ctx.fillRect(obj.x + 4, obj.y + 6, 20, 18);
+  ctx.fillRect(obj.x, obj.y + 24, 28, 16);
+  ctx.fillStyle = "#8d4be0";
+  ctx.fillRect(obj.x + 8, obj.y + 8 + pulse, 12, 18);
+  ctx.fillStyle = "#55e8ff";
+  ctx.fillRect(obj.x + 11, obj.y + 11 + pulse, 5, 16);
+  ctx.fillStyle = "#bba0ff";
+  ctx.fillRect(obj.x + 7, obj.y + 27 + pulse, 14, 12);
+}
+
+function drawStrangeTree(obj) {
+  const x = obj.x;
+  const y = obj.y;
+  pixelRect(x + 11, y + 36, 12, 28, "#4b386f", "#1b1336");
+  ctx.fillStyle = "#1b1336";
+  ctx.fillRect(x + 3, y + 13, 26, 28);
+  ctx.fillRect(x, y + 25, 32, 23);
+  ctx.fillStyle = "#7c4fd4";
+  ctx.fillRect(x + 6, y + 17, 21, 20);
+  ctx.fillRect(x + 4, y + 29, 24, 14);
+  ctx.fillStyle = "#55e8ff";
+  ctx.fillRect(x + 13, y + 21, 5, 5);
+}
+
+function drawFloatingRock(obj) {
+  const float = Math.sin(performance.now() / 420 + obj.x) * 3;
+  ctx.fillStyle = "rgba(0, 0, 0, 0.22)";
+  ctx.fillRect(obj.x + 2, obj.y + 17, obj.width - 4, 5);
+  pixelRect(obj.x, obj.y + float, obj.width, obj.height, "#76708e", "#1b1336");
+  ctx.fillStyle = "#bba0ff";
+  ctx.fillRect(obj.x + 6, obj.y + 5 + float, 8, 3);
 }
 
 function drawSecretStone(obj) {
@@ -1471,7 +1949,9 @@ function drawNpc(obj) {
   const bob = Math.sin(performance.now() / 300 + obj.bob) * 2;
   const x = obj.x;
   const y = obj.y + bob;
-  const shirt = obj.name === "Nico" ? "#3f8fe5" : obj.name === "Ari" ? "#d24c63" : "#7bdb73";
+  const shirt = obj.role === "dimensionGuide" ? "#8d4be0" :
+    obj.role === "dimensionMystic" ? "#55e8ff" :
+      obj.name === "Nico" ? "#3f8fe5" : obj.name === "Ari" ? "#d24c63" : "#7bdb73";
 
   ctx.fillStyle = "rgba(39, 48, 82, 0.25)";
   ctx.fillRect(x + 4, y + 27, 20, 5);
@@ -1538,7 +2018,122 @@ function findInteraction() {
   });
 }
 
+function countActivatedDimensionCrystals() {
+  return crystalDimensionObjects.filter((obj) => obj.type === "dimensionCrystal" && obj.activated).length;
+}
+
+function syncDimensionQuestState() {
+  dimensionQuest.activatedCrystals = countActivatedDimensionCrystals();
+  if (dimensionQuest.activatedCrystals >= dimensionQuest.totalCrystals) {
+    dimensionQuest.bridgeOpen = true;
+    if (dimensionQuest.status === "active") dimensionQuest.status = "ready";
+  }
+
+  const chestObj = crystalDimensionObjects.find((obj) => obj.type === "dimensionChest");
+  if (chestObj) chestObj.opened = dimensionQuest.chestOpened;
+}
+
+function getDimensionNpcMessage(npcObj) {
+  if (npcObj.role === "dimensionGuide") {
+    if (dimensionQuest.status === "notStarted") {
+      dimensionQuest.status = "active";
+      return "Orion: A ponte esta selada. Ative os 3 cristais magicos e o caminho para o bau vai aparecer.";
+    }
+
+    if (dimensionQuest.status === "active") {
+      return `Orion: Ainda faltam cristais. Progresso: ${dimensionQuest.activatedCrystals}/${dimensionQuest.totalCrystals}.`;
+    }
+
+    if (dimensionQuest.status === "ready" && !dimensionQuest.chestOpened) {
+      return "Orion: A ponte brilhou! Siga para o norte e abra o bau especial.";
+    }
+
+    return "Orion: A dimensao reconhece sua coragem. A ponte continuara aberta para voce.";
+  }
+
+  if (npcObj.role === "dimensionMystic") {
+    if (!dimensionQuest.bridgeOpen) {
+      return "Nyx: As pedras flutuantes escutam os cristais. Quando tres luzes acordarem, o norte vai se abrir.";
+    }
+    return "Nyx: A passagem secreta esta viva. O bau guarda uma recompensa da propria dimensao.";
+  }
+
+  return npcObj.message;
+}
+
+function activateDimensionCrystal(crystalObj) {
+  if (dimensionQuest.status === "notStarted") {
+    return `${crystalObj.message} Uma voz distante sussurra: fale com Orion antes de ativar este cristal.`;
+  }
+
+  if (crystalObj.activated) {
+    return `${crystalObj.message} Este cristal ja esta ativo. Cristais ativados: ${dimensionQuest.activatedCrystals}/${dimensionQuest.totalCrystals}.`;
+  }
+
+  crystalObj.activated = true;
+  crystalObj.activatedAt = performance.now();
+  dimensionQuest.activatedCrystals = countActivatedDimensionCrystals();
+  playSound("crystal");
+
+  let message = `${crystalObj.message} Voce ativou uma luz magica. Cristais ativados: ${dimensionQuest.activatedCrystals}/${dimensionQuest.totalCrystals}.`;
+
+  if (dimensionQuest.activatedCrystals >= dimensionQuest.totalCrystals) {
+    dimensionQuest.bridgeOpen = true;
+    dimensionQuest.status = "ready";
+    playSound("mission");
+    message += " A ponte secreta apareceu ao norte!";
+  }
+
+  return message;
+}
+
+function openDimensionChest(chestObj) {
+  if (!dimensionQuest.bridgeOpen) {
+    return "Bau especial: as tres marcas ainda estao apagadas. Ative os cristais primeiro.";
+  }
+
+  if (dimensionQuest.chestOpened || chestObj.opened) {
+    return "Bau especial: ele ja foi aberto. A luz roxa ainda gira devagar dentro dele.";
+  }
+
+  chestObj.opened = true;
+  dimensionQuest.chestOpened = true;
+  dimensionQuest.missionDone = true;
+  dimensionQuest.status = "done";
+  inventory.moedas += 25;
+  inventory.pocoes += 1;
+  inventory.espadas += 1;
+  player.maxHealth += 1;
+  player.health = Math.min(player.maxHealth, player.health + 1);
+  playSound("chest");
+  updateHud();
+  renderInventory();
+  return "Bau especial aberto! Voce recebeu 25 moedas, 1 pocao, 1 espada rara e ganhou mais 1 coracao maximo.";
+}
+
 function getQuestMessage(npcObj) {
+  if (npcObj.type === "portal") {
+    enterCrystalDimension();
+    return "";
+  }
+
+  if (npcObj.type === "dimensionPortal") {
+    exitCrystalDimension();
+    return "";
+  }
+
+  if (npcObj.type === "dimensionCrystal") {
+    return activateDimensionCrystal(npcObj);
+  }
+
+  if (npcObj.type === "dimensionChest") {
+    return openDimensionChest(npcObj);
+  }
+
+  if (npcObj.type === "npc" && (npcObj.role === "dimensionGuide" || npcObj.role === "dimensionMystic")) {
+    return getDimensionNpcMessage(npcObj);
+  }
+
   if (npcObj.type === "npc" && npcObj.role === "shopkeeper") {
     openShop();
     return "Vendedor: Escolha com calma. Pocao custa 5 moedas.";
@@ -1617,13 +2212,20 @@ function collectWorldItems() {
 }
 
 function updateQuestProgress() {
+  syncDimensionQuestState();
   const crystalText = quest.status === "notStarted" ? "Cristais: fale com Nico" :
     quest.status === "ready" ? "Cristais: volte ao Nico" :
       quest.status === "done" ? "Cristais: ok" : `Cristais: ${quest.collected}/${quest.total}`;
   const keyText = questBook.keyFound ? "Chave: ok" : "Chave: perdida";
   const monsterText = `Monstros: ${questBook.forestMonstersDefeated}/${questBook.forestMonstersGoal}`;
   const letterText = questBook.letterDelivered ? "Carta: ok" : questBook.letterPicked ? "Carta: entregue ao Beto" : "Carta: perdida";
-  questProgressEl.textContent = `${crystalText} | ${keyText} | ${monsterText} | ${letterText}`;
+  const progress = [crystalText, keyText, monsterText, letterText];
+
+  if (dimensionQuest.entered || currentScene === "crystalDimension" || dimensionQuest.status !== "notStarted") {
+    progress.push(`Cristais ativados: ${dimensionQuest.activatedCrystals}/${dimensionQuest.totalCrystals}`);
+  }
+
+  questProgressEl.textContent = progress.join(" | ");
 }
 
 function updateHud() {
@@ -1635,6 +2237,41 @@ function drawMiniMap() {
   miniCtx.clearRect(0, 0, miniMapCanvas.width, miniMapCanvas.height);
   miniCtx.fillStyle = "rgba(39, 48, 82, 0.95)";
   miniCtx.fillRect(0, 0, miniMapCanvas.width, miniMapCanvas.height);
+
+  if (currentScene === "crystalDimension") {
+    const sx = miniMapCanvas.width / CRYSTAL_WIDTH;
+    const sy = miniMapCanvas.height / CRYSTAL_HEIGHT;
+
+    miniCtx.fillStyle = "#2a1a52";
+    miniCtx.fillRect(0, 0, miniMapCanvas.width, miniMapCanvas.height);
+
+    miniCtx.fillStyle = "#3341aa";
+    for (let y = 0; y < CRYSTAL_ROWS; y++) {
+      for (let x = 0; x < CRYSTAL_COLS; x++) {
+        if (crystalDimensionMap[y][x] === "M") {
+          miniCtx.fillRect(x * TILE * sx, y * TILE * sy, Math.ceil(TILE * sx), Math.ceil(TILE * sy));
+        }
+      }
+    }
+
+    miniCtx.fillStyle = "#55e8ff";
+    for (const obj of crystalDimensionObjects) {
+      if (obj.type === "dimensionPortal" || obj.type === "dimensionCrystal") {
+        miniCtx.fillRect(obj.x * sx - 2, obj.y * sy - 2, 5, 5);
+      }
+    }
+
+    miniCtx.fillStyle = "#fff264";
+    for (const obj of crystalDimensionObjects) {
+      if (obj.type === "npc" || obj.type === "dimensionChest") {
+        miniCtx.fillRect(obj.x * sx - 2, obj.y * sy - 2, 5, 5);
+      }
+    }
+
+    miniCtx.fillStyle = "#d24c63";
+    miniCtx.fillRect(player.x * sx - 3, player.y * sy - 3, 7, 7);
+    return;
+  }
 
   if (currentScene !== "village") {
     miniCtx.fillStyle = "#f0c686";
@@ -1687,17 +2324,23 @@ function drawMiniMap() {
 }
 
 function saveGame() {
+  syncDimensionQuestState();
   const save = {
     scene: currentScene,
     player: {
       x: player.x,
       y: player.y,
       health: player.health,
+      maxHealth: player.maxHealth,
       direction: player.direction
     },
     inventory: { ...inventory },
     quest: { ...quest },
     questBook: { ...questBook },
+    dimensionQuest: { ...dimensionQuest },
+    dimensionCrystals: crystalDimensionObjects
+      .filter((obj) => obj.type === "dimensionCrystal" && obj.activated)
+      .map((obj) => obj.crystalIndex),
     collected: villageObjects
       .filter((obj) => (obj.type === "collectible" || obj.type === "crystal") && obj.collected)
       .map(getSaveObjectKey),
@@ -1720,6 +2363,7 @@ function loadGame() {
     Object.assign(inventory, save.inventory || {});
     Object.assign(quest, save.quest || {});
     Object.assign(questBook, save.questBook || {});
+    Object.assign(dimensionQuest, save.dimensionQuest || {});
 
     const collected = new Set(save.collected || []);
     const enemies = new Map((save.enemies || []).map((entry) => [entry.key, entry]));
@@ -1734,9 +2378,25 @@ function loadGame() {
       }
     }
 
-    setActiveScene(save.scene || "village");
+    const dimensionCrystals = new Set(save.dimensionCrystals || []);
+    for (const obj of crystalDimensionObjects) {
+      if (obj.type === "dimensionCrystal") {
+        obj.activated = dimensionCrystals.has(obj.crystalIndex);
+        obj.activatedAt = obj.activated ? performance.now() - 1000 : 0;
+      }
+      if (obj.type === "dimensionChest") {
+        obj.opened = Boolean(dimensionQuest.chestOpened);
+      }
+    }
+    syncDimensionQuestState();
+
+    const savedScene = ["village", "home", "shopInterior", "mayorInterior", "crystalDimension"].includes(save.scene) ?
+      save.scene : "village";
+    setActiveScene(savedScene);
+    if (savedScene === "crystalDimension") dimensionQuest.entered = true;
     player.x = save.player?.x ?? player.startX;
     player.y = save.player?.y ?? player.startY;
+    player.maxHealth = save.player?.maxHealth ?? 5;
     player.health = save.player?.health ?? player.maxHealth;
     player.direction = save.player?.direction || "down";
     gameOver = player.health <= 0;
@@ -1776,6 +2436,15 @@ function showInfo(title, text) {
   infoPanel.classList.remove("hidden");
 }
 
+function showErrorMessage(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  if (message === lastErrorMessage) return;
+
+  lastErrorMessage = message;
+  console.error("Erro no jogo:", error);
+  showInfo("Erro no jogo", `Algo deu errado, mas a tela nao vai ficar preta. Detalhe: ${message}`);
+}
+
 function ensureAudio() {
   if (!audioContext) {
     audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -1811,6 +2480,21 @@ function playSound(name) {
     playTone(620, 0.06, "sine", 0.06);
   } else if (name === "hit") {
     playTone(150, 0.12, "sawtooth", 0.08);
+  } else if (name === "portal") {
+    playTone(220, 0.12, "sine", 0.08);
+    setTimeout(() => playTone(440, 0.12, "triangle", 0.07), 90);
+    setTimeout(() => playTone(880, 0.16, "sine", 0.06), 180);
+  } else if (name === "crystal") {
+    playTone(760, 0.08, "triangle", 0.08);
+    setTimeout(() => playTone(1140, 0.1, "sine", 0.06), 75);
+  } else if (name === "chest") {
+    playTone(520, 0.08, "square", 0.08);
+    setTimeout(() => playTone(740, 0.08, "square", 0.07), 80);
+    setTimeout(() => playTone(980, 0.13, "triangle", 0.07), 160);
+  } else if (name === "mission") {
+    playTone(330, 0.08, "triangle", 0.06);
+    setTimeout(() => playTone(660, 0.08, "triangle", 0.06), 90);
+    setTimeout(() => playTone(990, 0.12, "triangle", 0.06), 180);
   }
 }
 
@@ -1938,30 +2622,25 @@ function getAttackRect() {
   return { x: centerX - 14, y: centerY, width: 28, height: size };
 }
 
-function findNearbyNpc() {
-  return interactables.find((obj) => {
-    if (obj.type !== "npc") return false;
+function updateInteractionHint() {
+  const target = findInteraction();
+  const hidden = !target || dialogOpen || shopOpen;
+  interactionHint.classList.toggle("hidden", hidden);
+  if (hidden) return;
 
-    const playerCenter = {
-      x: player.x + player.width / 2,
-      y: player.y + player.height / 2,
-      width: 1,
-      height: 1
-    };
-    const range = {
-      x: obj.x - 34,
-      y: obj.y - 34,
-      width: obj.width + 68,
-      height: obj.height + 68
-    };
-
-    return rectsOverlap(playerCenter, range);
-  });
+  if (target.type === "portal") interactionHint.textContent = "Pressione E para entrar no portal";
+  else if (target.type === "dimensionPortal") interactionHint.textContent = "Pressione E para voltar";
+  else if (target.type === "dimensionCrystal") interactionHint.textContent = "Pressione E para ativar cristal";
+  else if (target.type === "dimensionChest") interactionHint.textContent = "Pressione E para abrir o bau";
+  else if (target.type === "npc") interactionHint.textContent = "Pressione E para conversar";
+  else interactionHint.textContent = "Pressione E para interagir";
 }
 
-function updateInteractionHint() {
-  const npcNearby = findNearbyNpc();
-  interactionHint.classList.toggle("hidden", !npcNearby || dialogOpen);
+function showDialogMessage(message) {
+  if (!message) return;
+  dialogText.textContent = message;
+  dialogBox.classList.remove("hidden");
+  dialogOpen = true;
 }
 
 function toggleInteraction() {
@@ -1978,11 +2657,11 @@ function toggleInteraction() {
 
   const target = findInteraction();
   if (target) {
-    playSound(target.type === "npc" ? "npc" : "dialog");
-    dialogText.textContent = getQuestMessage(target);
+    const specialSound = ["portal", "dimensionPortal", "dimensionCrystal", "dimensionChest"].includes(target.type);
+    if (!specialSound) playSound(target.type === "npc" ? "npc" : "dialog");
+    const message = getQuestMessage(target);
     updateQuestProgress();
-    dialogBox.classList.remove("hidden");
-    dialogOpen = true;
+    showDialogMessage(message);
   }
 }
 
@@ -2008,10 +2687,22 @@ function gameLoop(time) {
   const delta = Math.min((time - lastTime) / 1000, 0.05);
   lastTime = time;
 
-  update(delta);
-  draw();
+  try {
+    update(delta);
+    draw();
+  } catch (error) {
+    showErrorMessage(error);
+  }
   requestAnimationFrame(gameLoop);
 }
+
+window.addEventListener("error", (event) => {
+  showErrorMessage(event.error || event.message);
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+  showErrorMessage(event.reason || "Promessa rejeitada sem detalhe.");
+});
 
 window.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
