@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <title>Vila Pixel Top-Down</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="game-shell">
+    <section class="game-panel" aria-label="Jogo 2D top-down">
+      <div id="startScreen" class="start-screen">
+        <div class="start-content">
+          <h1>Gabryel Garcia o Brabo</h1>
+          <p>Uma aventura pixel art pela Vila Pixel.</p>
+          <button id="playButton" type="button">Jogar</button>
+          <button id="continueButton" type="button">Continuar</button>
+          <button id="howToButton" type="button">Como Jogar</button>
+          <button id="creditsButton" type="button">Creditos</button>
+          <p id="startMessage"></p>
+        </div>
+      </div>
+
+      <canvas id="gameCanvas" width="960" height="640">
+        Seu navegador nao suporta Canvas 2D.
+      </canvas>
+
+      <div class="hud" aria-live="polite">
+        <div>
+          <span class="hud-label">Heroi</span>
+          <strong id="playerName">Lia</strong>
+        </div>
+        <div>
+          <span class="hud-label">Posicao</span>
+          <strong id="playerPosition">X: 0 / Y: 0</strong>
+        </div>
+        <div>
+          <span class="hud-label">Missao</span>
+          <strong id="questProgress">Fale com Nico</strong>
+        </div>
+        <div>
+          <span class="hud-label">Vida</span>
+          <strong id="healthHud">♥ ♥ ♥ ♥ ♥</strong>
+        </div>
+        <div>
+          <span class="hud-label">Moedas</span>
+          <strong id="coinHud">0</strong>
+        </div>
+        <button id="saveButton" type="button">Salvar Jogo</button>
+        <button id="resetButton" type="button">Reiniciar posicao</button>
+      </div>
+
+      <canvas id="miniMapCanvas" class="mini-map" width="170" height="124"></canvas>
+
+      <div class="touch-controls" aria-label="Controles touch">
+        <div class="touch-dpad">
+          <button class="touch-button touch-up" type="button" data-touch-key="arrowup" aria-label="Mover para cima">▲</button>
+          <button class="touch-button touch-left" type="button" data-touch-key="arrowleft" aria-label="Mover para esquerda">◀</button>
+          <button class="touch-button touch-right" type="button" data-touch-key="arrowright" aria-label="Mover para direita">▶</button>
+          <button class="touch-button touch-down" type="button" data-touch-key="arrowdown" aria-label="Mover para baixo">▼</button>
+        </div>
+
+        <div class="touch-actions">
+          <button id="touchInventoryButton" class="touch-button touch-small" type="button" aria-label="Abrir inventario">Inv</button>
+          <button id="touchActionButton" class="touch-button" type="button" aria-label="Acao">Ação</button>
+          <button id="touchAttackButton" class="touch-button" type="button" aria-label="Ataque">Ataque</button>
+        </div>
+      </div>
+
+      <div id="interactionHint" class="interaction-hint hidden">
+        Pressione E para conversar
+      </div>
+
+      <div id="dialogBox" class="dialog hidden" role="status" aria-live="assertive">
+        <p id="dialogText"></p>
+        <span>Aperte E para continuar</span>
+      </div>
+
+      <div id="inventoryPanel" class="panel inventory-panel hidden">
+        <h2>Inventario</h2>
+        <ul id="inventoryList"></ul>
+        <p>Pressione I para fechar. Pressione U para usar pocao.</p>
+      </div>
+
+      <div id="shopPanel" class="panel shop-panel hidden">
+        <h2>Loja Estrela Azul</h2>
+        <p>Pocao: 5 moedas</p>
+        <button id="buyPotionButton" type="button">Comprar pocao</button>
+        <p id="shopMessage"></p>
+        <span>Aperte E para fechar</span>
+      </div>
+
+      <div id="gameOverScreen" class="game-over hidden">
+        <h2>Game Over</h2>
+        <p>Lia desmaiou. Reinicie a posicao para tentar de novo.</p>
+        <button id="gameOverResetButton" type="button">Tentar novamente</button>
+      </div>
+
+      <div id="infoPanel" class="info-panel hidden">
+        <button id="closeInfoButton" type="button">Fechar</button>
+        <h2 id="infoTitle"></h2>
+        <p id="infoText"></p>
+      </div>
+    </section>
+
+    <aside class="controls">
+      <h1>Vila Pixel</h1>
+      <p>Explore a vila, fale com moradores e leia as placas.</p>
+      <ul>
+        <li><strong>W A S D</strong> ou <strong>setas</strong>: mover</li>
+        <li><strong>E</strong>: interagir</li>
+        <li><strong>Espaco</strong>: atacar</li>
+        <li><strong>I</strong>: inventario</li>
+        <li><strong>U</strong>: usar pocao</li>
+        <li><strong>Botao</strong>: voltar ao inicio</li>
+      </ul>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,85 @@
+# Vila Pixel Top-Down
+
+Jogo 2D top-down em estilo RPG antigo, feito com HTML, CSS e JavaScript puro usando Canvas 2D.
+O visual usa uma arte original inspirada em RPGs pixel art coloridos, com contornos fortes e sprites desenhados no proprio Canvas.
+
+## Como executar
+
+1. Abra a pasta do projeto no VS Code.
+2. Instale a extensao **Live Server**, se ainda nao tiver.
+3. Clique com o botao direito em `index.html`.
+4. Escolha **Open with Live Server**.
+
+Tambem funciona abrindo `index.html` direto no navegador, mas o Live Server deixa o fluxo de desenvolvimento mais confortavel.
+
+## Publicar
+
+### GitHub Pages
+
+1. Envie estes arquivos para um repositorio no GitHub: `index.html`, `styles.css`, `app.js`, `README.md`, `.nojekyll` e `netlify.toml`.
+2. No GitHub, abra **Settings > Pages**.
+3. Em **Build and deployment**, escolha **Deploy from a branch**.
+4. Selecione a branch `main` e a pasta `/root`.
+5. Salve e aguarde o link do GitHub Pages.
+
+### Netlify
+
+1. Acesse Netlify e escolha **Add new site > Import an existing project**.
+2. Conecte o repositorio do GitHub.
+3. Use estas configuracoes:
+   - Build command: vazio
+   - Publish directory: `.`
+4. Publique o site.
+
+O projeto nao usa banco de dados, servidor, bibliotecas externas nem etapa de build.
+Arquivos de deploy incluidos: `.nojekyll` para GitHub Pages e `netlify.toml` para Netlify.
+
+## Controles
+
+- `W A S D` ou setas do teclado: mover personagem
+- `E`: interagir com placas e NPCs
+- `Espaco`: atacar na direcao em que o personagem esta olhando
+- `I`: abrir ou fechar inventario
+- `U`: usar pocao para recuperar vida
+- Botao **Salvar Jogo**: salva progresso no navegador usando `localStorage`
+- Botao **Reiniciar posicao**: volta o personagem para o ponto inicial
+
+No celular:
+
+- Direcional virtual no canto inferior esquerdo: mover
+- Botao **Acao**: interagir, igual a tecla `E`
+- Botao **Ataque**: atacar, igual a tecla `Espaco`
+- Botao **Inv**: abrir inventario, igual a tecla `I`
+
+## O que foi implementado
+
+- Personagem no centro da tela com camera seguindo
+- Movimento em oito direcoes com teclado
+- Mapa de vila com grama, caminhos, casas, arvores, cercas, placas e agua
+- Mapa grande com areas diferentes: vila principal, loja, casa do jogador, parque, portal, floresta, praca, lago e area secreta
+- Flores e pedras decorativas espalhadas pelo cenario
+- Colisao com casas, arvores, cercas, placas, NPCs e agua
+- Animacao simples de caminhada
+- Sistema de dialogo ao apertar `E`
+- Sistema de missao: Nico pede 3 cristais, o jogador coleta e recebe recompensa
+- Missoes extras: chave perdida, monstros na floresta e entrega de carta
+- Inventario com tecla `I`, itens coletaveis e quantidades
+- Loja com vendedor, compra de pocao usando moedas e moedas no HUD
+- Sistema de vida com 5 coracoes, pocoes e tela de Game Over
+- Inimigos simples: slimes na floresta e morcego perto da caverna
+- Ataque com `Espaco`, dano em inimigos e recompensa em moedas
+- Tela inicial com Jogar, Continuar, Como Jogar e Creditos
+- Sistema de salvar/continuar com `localStorage`
+- Mini mapa com jogador, casas, lago e NPCs importantes
+- Suporte para celular com Canvas responsivo e controles touch
+- Efeitos sonoros e musica simples com Web Audio API, sem arquivos externos
+- Transicao entre mapas: casa do jogador, loja e casa do prefeito tem interiores proprios
+- HUD com nome do personagem e posicao X/Y
+- HUD com progresso da missao
+- Codigo separado em `index.html`, `styles.css` e `app.js`
+
+## Estrutura
+
+- `index.html`: estrutura da pagina e elementos da interface
+- `styles.css`: visual da pagina, HUD e caixa de dialogo
+- `app.js`: logica do jogo, mapa, desenho no Canvas, movimento e colisoes
