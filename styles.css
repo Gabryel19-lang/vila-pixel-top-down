@@ -555,13 +555,24 @@ canvas {
   }
 
   .dialog {
-    bottom: calc(112px + env(safe-area-inset-bottom));
+    bottom: calc(138px + env(safe-area-inset-bottom));
     width: calc(100% - 36px);
-    padding: 12px 14px;
+    padding: 9px 12px;
+    border-radius: 6px;
     box-shadow:
       0 0 0 2px var(--ui-border),
-      0 0 0 4px rgba(245, 206, 121, 0.55),
-      0 6px 0 var(--ui-shadow);
+      0 0 0 3px rgba(245, 206, 121, 0.48),
+      0 4px 0 var(--ui-shadow);
+  }
+
+  .dialog p {
+    margin-bottom: 5px;
+    font-size: 0.86rem;
+    line-height: 1.25;
+  }
+
+  .dialog span {
+    font-size: 0.72rem;
   }
 
   .panel {
