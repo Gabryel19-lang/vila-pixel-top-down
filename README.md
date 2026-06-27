@@ -1,7 +1,14 @@
-# Vila Pixel Top-Down
+# Eternal Rift
 
 Jogo 2D top-down em estilo RPG antigo, feito com HTML, CSS e JavaScript puro usando Canvas 2D.
 O visual usa uma arte original inspirada em RPGs pixel art coloridos, com contornos fortes e sprites desenhados no proprio Canvas.
+
+Subtitulo: **A Jornada Entre Dimensoes**.
+
+Criadores:
+
+- Gabryel Garcia
+- Victor Ricardo Fonseca Baldin
 
 ## Como executar
 
@@ -47,7 +54,14 @@ Exemplo: `https://seu-usuario.github.io/seu-repositorio/?play=1`.
 O projeto nao usa banco de dados, servidor, bibliotecas externas nem etapa de build.
 Arquivos de deploy incluidos: `.nojekyll` para GitHub Pages e `netlify.toml` para Netlify.
 
+Link pronto para compartilhar no celular:
+
+`https://gabryel19-lang.github.io/vila-pixel-top-down/?play=1`
+
 ## Controles
+
+Na tela inicial, digite o nome do personagem no campo **Digite o nome do personagem**.
+Se deixar vazio, o jogo usa o nome padrao **Upminaa**. O nome fica salvo junto com o progresso.
 
 - `W A S D` ou setas do teclado: mover personagem
 - `E`: interagir com placas e NPCs
@@ -66,6 +80,14 @@ Arquivos de deploy incluidos: `.nojekyll` para GitHub Pages e `netlify.toml` par
 - `Esc`: abrir ou fechar menu
 - `F3`: abrir debug com X/Y, FPS, cena, canvas, `isMobile` e ultimo erro
 - Menu: salvar jogo, reiniciar posicao, ver missoes, status, inventario e ajuda
+
+Progressao:
+
+- Derrote inimigos para ganhar XP.
+- Complete missoes, abra baus raros, ative cristais e explore areas novas para ganhar XP extra.
+- O nivel maximo e 1000.
+- A curva de XP usa `50 + nivel * nivel * 8`, ficando mais dificil aos poucos.
+- Ao subir de nivel, o personagem ganha pontos, brilho visual e pequenas melhorias de vida, mana, defesa e dano.
 
 No celular:
 
@@ -105,6 +127,15 @@ Informacoes grandes ficam em paineis:
 - `C` abre o painel de status com vida, mana, defesa, critico, arma, poder e buffs.
 - `Esc` abre o menu principal.
 - `F3` abre ou fecha o debug.
+
+O HUD tambem mostra:
+
+- Nome do personagem e nivel atual.
+- Barra de XP.
+- XP atual e XP necessario para o proximo nivel.
+- No nivel 1000, mostra `Nv. 1000 MAX`.
+
+O painel de status (`C`) mostra nome, nivel, XP, vida maxima, mana maxima, dano base, defesa, bosses derrotados e missoes concluidas.
 
 ## Bolsa do Aventureiro
 

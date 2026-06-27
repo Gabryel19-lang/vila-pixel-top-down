@@ -12,7 +12,10 @@ const continueButton = document.getElementById("continueButton");
 const howToButton = document.getElementById("howToButton");
 const creditsButton = document.getElementById("creditsButton");
 const startMessage = document.getElementById("startMessage");
+const characterNameInput = document.getElementById("characterNameInput");
 const playerNameEl = document.getElementById("playerName");
+const xpHud = document.getElementById("xpHud");
+const xpFill = document.getElementById("xpFill");
 const playerPositionEl = document.getElementById("playerPosition");
 const questProgressEl = document.getElementById("questProgress");
 const healthHud = document.getElementById("healthHud");
@@ -101,6 +104,9 @@ if (bossHud && canvas.parentElement && bossHud.parentElement !== canvas.parentEl
 const urlParams = new URLSearchParams(window.location.search);
 const shouldAutoStart = urlParams.get("play") === "1" || urlParams.get("start") === "1";
 const SAVE_KEY = "gabryel-garcia-o-brabo-save-v1";
+const DEFAULT_NEW_PLAYER_NAME = "Upminaa";
+const FALLBACK_PLAYER_NAME = "Lia";
+const PLAYER_MAX_LEVEL = 1000;
 const TILE = 32;
 const MAP_COLS = 82;
 const MAP_ROWS = 60;
@@ -257,7 +263,8 @@ const questBook = {
   bossDefeated: false,
   bossChestOpened: false,
   defeatedBosses: {},
-  openedChests: {}
+  openedChests: {},
+  discoveredAreas: {}
 };
 
 const dimensionQuest = {
@@ -279,7 +286,7 @@ const dimensionParticles = Array.from({ length: 70 }, (_, index) => ({
 }));
 
 const player = {
-  name: "Lia",
+  name: DEFAULT_NEW_PLAYER_NAME,
   x: 30 * TILE,
   y: 24 * TILE,
   startX: 30 * TILE,
@@ -287,10 +294,19 @@ const player = {
   width: 22,
   height: 26,
   speed: 150,
+  baseSpeed: 150,
   maxHealth: 5,
   health: 5,
   defense: 0,
   critChance: 0.12,
+  level: 1,
+  xp: 0,
+  xpToNextLevel: 58,
+  maxLevel: PLAYER_MAX_LEVEL,
+  totalXp: 0,
+  skillPoints: 0,
+  damageBonus: 0,
+  levelGlowTimer: 0,
   maxMana: 6,
   mana: 6,
   manaRegen: 0.45,
@@ -311,7 +327,9 @@ const player = {
   animTimer: 0
 };
 
-playerNameEl.textContent = player.name;
+normalizeLevelState();
+playerNameEl.textContent = getPlayerHudName();
+if (characterNameInput) characterNameInput.value = DEFAULT_NEW_PLAYER_NAME;
 
 // G = grama, F = floresta, D = caminho, P = praca, W = agua
 const worldMap = createWorldMap();
@@ -1470,6 +1488,7 @@ function setActiveScene(scene) {
 }
 
 function normalizeRuntimeState() {
+  normalizeLevelState();
   inventory.cristais = Number(inventory.cristais || 0);
   inventory.chaves = Number(inventory.chaves || 0);
   inventory.pocoes = Number(inventory.pocoes || 0);
@@ -1487,6 +1506,9 @@ function normalizeRuntimeState() {
   }
   if (!questBook.openedChests || typeof questBook.openedChests !== "object") {
     questBook.openedChests = {};
+  }
+  if (!questBook.discoveredAreas || typeof questBook.discoveredAreas !== "object") {
+    questBook.discoveredAreas = {};
   }
 
   if (!Array.isArray(player.unlockedWeapons) || !player.unlockedWeapons.length) player.unlockedWeapons = [...weaponOrder];
@@ -1607,7 +1629,7 @@ function setPause(open) {
 function showHowTo() {
   showInfo(
     "Como Jogar",
-    "PC:\nW A S D ou setas: mover\nMouse: mirar\nClique esquerdo: atacar\nClique direito ou Q: poder equipado\n1-4: escolher poder\nTab: trocar arma\nEspaco: dash\nE: interagir\nI: inventario\nU: pocao\nM: missoes\nC: status\nEsc: menu\nF3: debug com X/Y\n\nCelular:\nUse o joystick para mover.\nAtaque mira automaticamente no inimigo mais proximo.\nPoder usa o poder escolhido na barra 1-4.\nMenu abre salvar, reiniciar, missoes, status e inventario.\nUse em modo horizontal para jogar melhor."
+    "PC:\nW A S D ou setas: mover\nE: interagir\nI: inventario\nMouse: mirar\nClique esquerdo: atacar\nQ: usar poder equipado\n1, 2, 3, 4: escolher poder\nTab: trocar arma\nEspaco: dash\nU: usar pocao\nM: missoes\nC: status\nEsc: menu\nF3: debug\n\nCelular:\nJoystick: mover\nAtaque: atacar\nPoder: usar poder equipado\nInteragir: conversar, abrir, entrar ou ativar\nInventario: abrir bolsa\nDash: esquivar\nPocao: curar\n\nProgressao:\nDerrote inimigos, complete missoes, ative cristais e abra baus para ganhar XP.\nO nivel maximo e 1000."
   );
 }
 
@@ -1671,6 +1693,9 @@ function exitMayorInterior() {
 
 function enterCrystalDimension() {
   lastVillagePosition = { x: player.x, y: player.y };
+  const firstVisit = !questBook.discoveredAreas?.crystalDimension;
+  if (!questBook.discoveredAreas) questBook.discoveredAreas = {};
+  questBook.discoveredAreas.crystalDimension = true;
   dimensionQuest.entered = true;
   setActiveScene("crystalDimension");
   player.x = 22 * TILE + 16;
@@ -1680,6 +1705,7 @@ function enterCrystalDimension() {
   vibrate([20, 35, 20]);
   showHudToast("Voce entrou na Dimensao Cristalina");
   showDialogMessage("Voce atravessou o portal e chegou na Dimensao Cristalina.");
+  if (firstVisit) awardXp(150, "Nova dimensao");
   updateQuestProgress();
 }
 
@@ -1761,6 +1787,7 @@ function update(delta) {
   }
 
   updateTimedEffects(delta);
+  player.levelGlowTimer = Math.max(0, Number(player.levelGlowTimer || 0) - delta);
   if (hitstopTimer > 0) {
     hitstopTimer = Math.max(0, hitstopTimer - delta);
     updateAttack(delta);
@@ -1832,6 +1859,7 @@ function update(delta) {
   camera.y = clamp(player.y + player.height / 2 - canvas.height / 2, 0, getSceneHeight() - canvas.height);
 
   playerPositionEl.textContent = getAreaName();
+  checkAreaDiscovery();
   collectCrystals();
   updateQuestProgress();
   updateHud();
@@ -2263,6 +2291,16 @@ function getAreaName() {
   return "Vila Principal";
 }
 
+function checkAreaDiscovery() {
+  if (currentScene !== "village" || !gameStarted || gameOver) return;
+  if (!questBook.discoveredAreas) questBook.discoveredAreas = {};
+  const areaName = getAreaName();
+  if (areaName === "Vila Principal" || questBook.discoveredAreas[areaName]) return;
+
+  questBook.discoveredAreas[areaName] = true;
+  awardXp(50, "Nova area");
+}
+
 function updateTimedEffects(delta) {
   updatePowerUps(delta);
   playerInvulnerableTimer = Math.max(0, playerInvulnerableTimer - delta);
@@ -2619,14 +2657,19 @@ function damageEnemy(obj, amount, sourceX, sourceY, knockbackPower = 170, damage
 function defeatEnemy(obj) {
   obj.alive = false;
   inventory.moedas += obj.coinReward;
+  awardXp(getEnemyXpReward(obj), obj.boss ? "Boss derrotado" : "Inimigo derrotado");
   spawnFloatingText(`+${obj.coinReward} moedas`, obj.x, obj.y - 18, "#fff264");
   playSound(obj.boss ? "bossDown" : "enemyDown");
 
   if (["slime", "slimeVerde", "slimeVermelho", "aranha", "goblin", "morcego"].includes(obj.kind)) {
+    const previousCount = questBook.forestMonstersDefeated;
     questBook.forestMonstersDefeated = Math.min(
       questBook.forestMonstersGoal,
       questBook.forestMonstersDefeated + 1
     );
+    if (previousCount < questBook.forestMonstersGoal && questBook.forestMonstersDefeated >= questBook.forestMonstersGoal) {
+      awardXp(300, "Missao dos monstros");
+    }
   }
 
   if (obj.boss) {
@@ -2980,6 +3023,187 @@ function drawMobileTargetMark() {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function sanitizePlayerName(name, fallback = FALLBACK_PLAYER_NAME) {
+  const cleaned = String(name || "").trim().replace(/\s+/g, " ").slice(0, 16);
+  return cleaned || fallback;
+}
+
+function getNameFromInput() {
+  return sanitizePlayerName(characterNameInput?.value, DEFAULT_NEW_PLAYER_NAME);
+}
+
+function setPlayerName(name, fallback = FALLBACK_PLAYER_NAME) {
+  player.name = sanitizePlayerName(name, fallback);
+  if (characterNameInput) characterNameInput.value = player.name;
+  updateHud();
+}
+
+function getPlayerDisplayName() {
+  return sanitizePlayerName(player.name, FALLBACK_PLAYER_NAME);
+}
+
+function getPlayerHudName() {
+  normalizeLevelState();
+  if (player.level >= player.maxLevel) return `${getPlayerDisplayName()} | Nv. ${player.level} MAX`;
+  return `${getPlayerDisplayName()} | Nv. ${player.level}`;
+}
+
+function getXpToNextLevel(level) {
+  const safeLevel = clamp(Math.floor(Number(level) || 1), 1, PLAYER_MAX_LEVEL);
+  if (safeLevel >= PLAYER_MAX_LEVEL) return 0;
+  return Math.floor(50 + safeLevel * safeLevel * 8);
+}
+
+function normalizeLevelState() {
+  player.name = sanitizePlayerName(player.name, FALLBACK_PLAYER_NAME);
+  player.maxLevel = Number.isFinite(Number(player.maxLevel)) ? Math.floor(Number(player.maxLevel)) : PLAYER_MAX_LEVEL;
+  player.maxLevel = clamp(player.maxLevel, 1, PLAYER_MAX_LEVEL);
+  player.level = Number.isFinite(Number(player.level)) ? Math.floor(Number(player.level)) : 1;
+  player.level = clamp(player.level, 1, player.maxLevel);
+  player.xp = Math.max(0, Math.floor(Number(player.xp) || 0));
+  player.totalXp = Math.max(0, Math.floor(Number(player.totalXp) || 0));
+  player.skillPoints = Math.max(0, Math.floor(Number(player.skillPoints) || 0));
+  player.damageBonus = Math.max(0, Number(player.damageBonus) || 0);
+  player.baseSpeed = Number.isFinite(Number(player.baseSpeed)) ? Number(player.baseSpeed) : 150;
+  player.speed = Number.isFinite(Number(player.speed)) ? Number(player.speed) : player.baseSpeed;
+
+  if (player.level >= player.maxLevel) {
+    player.level = player.maxLevel;
+    player.xp = 0;
+    player.xpToNextLevel = 0;
+  } else {
+    player.xpToNextLevel = getXpToNextLevel(player.level);
+  }
+}
+
+function awardXp(amount, reason = "XP") {
+  normalizeLevelState();
+  if (player.level >= player.maxLevel) {
+    showHudToast("Nivel maximo");
+    updateHud();
+    return;
+  }
+
+  const gained = Math.max(0, Math.floor(Number(amount) || 0));
+  if (!gained) return;
+
+  player.xp += gained;
+  player.totalXp += gained;
+  spawnFloatingText(`+${gained} XP`, player.x + 8, player.y - 26, "#55e8ff");
+
+  let levelsGained = 0;
+  let guard = 0;
+  while (player.level < player.maxLevel && player.xp >= player.xpToNextLevel && guard < PLAYER_MAX_LEVEL) {
+    player.xp -= player.xpToNextLevel;
+    player.level += 1;
+    levelsGained += 1;
+    applyLevelReward(player.level);
+    player.xpToNextLevel = getXpToNextLevel(player.level);
+    guard += 1;
+  }
+
+  if (player.level >= player.maxLevel) {
+    player.level = player.maxLevel;
+    player.xp = 0;
+    player.xpToNextLevel = 0;
+  }
+
+  if (levelsGained > 0) {
+    player.levelGlowTimer = 1.6;
+    playSound("levelUp");
+    vibrate([20, 35, 20]);
+    showHudToast(`Subiu para o nivel ${player.level}!`);
+    spawnFloatingText(`Nivel ${player.level}!`, player.x - 4, player.y - 42, "#fff264");
+  } else {
+    showHudToast(`${reason}: +${gained} XP`, 1.7);
+  }
+
+  updateHud();
+  if (statusOpen) renderStatusPanel();
+}
+
+function applyLevelReward(level) {
+  player.skillPoints = (player.skillPoints || 0) + 1;
+  player.damageBonus = Number(player.damageBonus || 0) + 0.05;
+
+  if (level % 5 === 0) {
+    player.maxHealth += 1;
+    player.health = Math.min(player.maxHealth, player.health + 1);
+  }
+  if (level % 3 === 0) {
+    player.maxMana += 1;
+    player.mana = Math.min(player.maxMana, player.mana + 1);
+  }
+  if (level % 10 === 0) {
+    player.defense += 1;
+  }
+  if (level % 25 === 0) {
+    player.speed = Math.min(190, player.speed + 1);
+  }
+}
+
+function getEnemyXpReward(obj) {
+  if (obj.boss) {
+    if (["reiSlime", "aranhaRainha", "golemAncestral", "bruxoSombrio", "serpenteLago"].includes(obj.kind)) return 1000;
+    return 200;
+  }
+
+  const rewards = {
+    slime: 10,
+    slimeVerde: 10,
+    slimeVermelho: 14,
+    slimeAzul: 12,
+    morcego: 10,
+    aranha: 15,
+    goblin: 25,
+    arqueiroGoblin: 30,
+    magoSombrio: 50,
+    golemPedra: 50,
+    fantasma: 35,
+    peixeHostil: 18,
+    miniDragao: 80,
+    guardiao: 200
+  };
+
+  return rewards[obj.kind] || Math.max(10, Number(obj.xpReward || 10));
+}
+
+function countDefeatedBosses() {
+  return Object.values(questBook.defeatedBosses || {}).filter(Boolean).length;
+}
+
+function countCompletedMissions() {
+  return [
+    quest.status === "done",
+    Boolean(questBook.keyFound),
+    questBook.forestMonstersDefeated >= questBook.forestMonstersGoal,
+    Boolean(questBook.letterDelivered),
+    Boolean(dimensionQuest.missionDone),
+    Boolean(questBook.bossChestOpened)
+  ].filter(Boolean).length;
+}
+
+function readSaveRaw() {
+  try {
+    return localStorage.getItem(SAVE_KEY);
+  } catch (error) {
+    startMessage.textContent = "Nao foi possivel acessar o save neste navegador.";
+    showHudToast("Save indisponivel neste navegador.");
+    return null;
+  }
+}
+
+function writeSaveRaw(payload) {
+  try {
+    localStorage.setItem(SAVE_KEY, payload);
+    return true;
+  } catch (error) {
+    startMessage.textContent = "Nao foi possivel salvar, mas o jogo continua.";
+    showHudToast("Nao foi possivel salvar.");
+    return false;
+  }
 }
 
 function draw() {
@@ -4106,6 +4330,15 @@ function drawPlayer() {
     ctx.stroke();
   }
 
+  if (player.levelGlowTimer > 0) {
+    const pulse = 0.35 + Math.sin(performance.now() / 80) * 0.18;
+    ctx.fillStyle = `rgba(255, 242, 100, ${pulse})`;
+    ctx.fillRect(x - 8, y - 8, player.width + 16, player.height + 16);
+    ctx.fillStyle = "rgba(85, 232, 255, 0.34)";
+    ctx.fillRect(x - 2, y - 14, player.width + 4, 5);
+    ctx.fillRect(x + 3, y + player.height + 4, player.width - 6, 4);
+  }
+
   ctx.fillStyle = "rgba(39, 48, 82, 0.25)";
   ctx.fillRect(x + 3, y + 25, 22, 5);
 
@@ -4212,6 +4445,7 @@ function activateDimensionCrystal(crystalObj) {
   crystalObj.activated = true;
   crystalObj.activatedAt = performance.now();
   dimensionQuest.activatedCrystals = countActivatedDimensionCrystals();
+  awardXp(150, "Cristal ativado");
   playSound("crystal");
 
   let message = `${crystalObj.message} Voce ativou uma luz magica. Cristais ativados: ${dimensionQuest.activatedCrystals}/${dimensionQuest.totalCrystals}.`;
@@ -4244,6 +4478,7 @@ function openDimensionChest(chestObj) {
   inventory.espadas += 1;
   player.maxHealth += 1;
   player.health = Math.min(player.maxHealth, player.health + 1);
+  awardXp(300, "Bau da dimensao");
   playSound("chest");
   updateHud();
   renderInventory();
@@ -4265,6 +4500,7 @@ function openRareChest() {
   inventory.espadas += 1;
   player.maxMana += 1;
   player.mana = player.maxMana;
+  awardXp(300, "Bau raro");
   playSound("chest");
   updateHud();
   renderInventory();
@@ -4308,7 +4544,8 @@ function getQuestMessage(npcObj) {
       inventory.cartas -= 1;
       questBook.letterDelivered = true;
       inventory.moedas += 6;
-      return "Beto: Minha carta! Obrigado. Aceite 6 moedas pela entrega.";
+      awardXp(300, "Carta entregue");
+      return `Beto: Minha carta! Obrigado, ${getPlayerDisplayName()}. Aceite 6 moedas pela entrega.`;
     }
     if (questBook.letterDelivered) return "Beto: Obrigado pela carta. A vila precisava dessa noticia.";
     return "Beto: Se encontrar uma carta perdida, pode trazer para mim?";
@@ -4318,7 +4555,7 @@ function getQuestMessage(npcObj) {
 
   if (quest.status === "notStarted") {
     quest.status = "active";
-    return "Nico: Preciso de ajuda! Encontre 3 cristais brilhantes pela vila e volte aqui.";
+    return `Nico: ${getPlayerDisplayName()}, preciso de ajuda! Encontre 3 cristais brilhantes pela vila e volte aqui.`;
   }
 
   if (quest.status === "active") {
@@ -4327,7 +4564,8 @@ function getQuestMessage(npcObj) {
 
   if (quest.status === "ready") {
     quest.status = "done";
-    return `Nico: Voce conseguiu! Receba sua recompensa: ${quest.reward}.`;
+    awardXp(300, "Missao dos cristais");
+    return `Nico: Voce conseguiu, ${getPlayerDisplayName()}! Receba sua recompensa: ${quest.reward}.`;
   }
 
   return `Nico: Obrigado de novo pela ajuda. O ${quest.reward} combina com voce!`;
@@ -4434,7 +4672,16 @@ function getCompactMissionText() {
 }
 
 function updateHud() {
+  normalizeLevelState();
   updateMobilePowerButtons();
+  playerNameEl.textContent = getPlayerHudName();
+  if (xpHud) {
+    xpHud.textContent = player.level >= player.maxLevel ? "XP: Nivel maximo" : `XP: ${player.xp}/${player.xpToNextLevel}`;
+  }
+  if (xpFill) {
+    const percent = player.level >= player.maxLevel ? 100 : clamp((player.xp / player.xpToNextLevel) * 100, 0, 100);
+    xpFill.style.width = `${percent}%`;
+  }
   healthHud.textContent = "♥ ".repeat(player.health).trim() || "0";
   manaHud.textContent = `${Math.floor(player.mana)}/${player.maxMana}`;
   manaFill.style.width = `${clamp((player.mana / player.maxMana) * 100, 0, 100)}%`;
@@ -4492,13 +4739,21 @@ function renderStatusPanel() {
     .filter(([, value]) => value > 0)
     .map(([key, value]) => `${getPowerUpName(key)} ${Math.ceil(value)}s`);
   const rows = [
+    ["Nome", getPlayerDisplayName()],
+    ["Nivel", player.level >= player.maxLevel ? `${player.level} MAX` : player.level],
+    ["XP", player.level >= player.maxLevel ? "Nivel maximo" : `${player.xp}/${player.xpToNextLevel}`],
+    ["XP total", player.totalXp],
     ["Vida", `${player.health}/${player.maxHealth}`],
     ["Mana", `${Math.floor(player.mana)}/${player.maxMana}`],
     ["Oxigenio", player.isSwimming ? `${Math.ceil(player.oxygen)}/${player.maxOxygen}` : "fora da agua"],
+    ["Dano base", `+${Math.floor(player.damageBonus || 0)}`],
     ["Defesa", player.defense || 0],
     ["Critico", `${Math.round((player.critChance || 0) * 100)}%`],
     ["Arma", getCurrentWeapon().name],
     ["Poder", powerNames[equippedPower] || "Poder"],
+    ["Pontos", player.skillPoints || 0],
+    ["Bosses", countDefeatedBosses()],
+    ["Missoes", countCompletedMissions()],
     ["Buffs", buffs.length ? buffs.join(", ") : "nenhum"]
   ];
   statusList.innerHTML = rows.map(([name, value]) => `<li><span>${name}</span><strong>${value}</strong></li>`).join("");
@@ -4717,11 +4972,23 @@ function drawMiniMap() {
 
 function saveGame() {
   syncDimensionQuestState();
+  normalizeLevelState();
   const save = {
     scene: currentScene,
     player: {
+      name: getPlayerDisplayName(),
       x: player.x,
       y: player.y,
+      level: player.level,
+      xp: player.xp,
+      xpToNextLevel: player.xpToNextLevel,
+      maxLevel: player.maxLevel,
+      totalXp: player.totalXp,
+      skillPoints: player.skillPoints,
+      damageBonus: player.damageBonus,
+      speed: player.speed,
+      baseSpeed: player.baseSpeed,
+      defense: player.defense,
       health: player.health,
       maxHealth: player.maxHealth,
       mana: player.mana,
@@ -4764,14 +5031,14 @@ function saveGame() {
       }))
   };
 
-  localStorage.setItem(SAVE_KEY, JSON.stringify(save));
+  if (!writeSaveRaw(JSON.stringify(save))) return;
   startMessage.textContent = "Jogo salvo!";
   showHudToast("Jogo salvo!");
   saveNoticeTimer = 2;
 }
 
 function loadGame() {
-  const raw = localStorage.getItem(SAVE_KEY);
+  const raw = readSaveRaw();
   if (!raw) return false;
 
   try {
@@ -4784,6 +5051,17 @@ function loadGame() {
     currentWeaponIndex = save.player?.currentWeaponIndex ?? 0;
     equippedPower = save.player?.equippedPower || "fireball";
     player.unlockedWeapons = save.player?.unlockedWeapons || player.unlockedWeapons;
+    player.name = sanitizePlayerName(save.player?.name, FALLBACK_PLAYER_NAME);
+    player.level = save.player?.level ?? 1;
+    player.xp = save.player?.xp ?? 0;
+    player.xpToNextLevel = save.player?.xpToNextLevel ?? getXpToNextLevel(player.level);
+    player.maxLevel = save.player?.maxLevel ?? PLAYER_MAX_LEVEL;
+    player.totalXp = save.player?.totalXp ?? 0;
+    player.skillPoints = save.player?.skillPoints ?? 0;
+    player.damageBonus = save.player?.damageBonus ?? 0;
+    player.defense = save.player?.defense ?? 0;
+    player.baseSpeed = save.player?.baseSpeed ?? 150;
+    player.speed = save.player?.speed ?? player.baseSpeed;
 
     const collected = new Set(save.collected || []);
     const powerUpsCollected = new Set(save.powerUpsCollected || []);
@@ -4838,6 +5116,7 @@ function loadGame() {
     Object.assign(player.spellCooldowns, save.player?.spellCooldowns || {});
     player.direction = save.player?.direction || "down";
     normalizeRuntimeState();
+    if (characterNameInput) characterNameInput.value = getPlayerDisplayName();
     gameOver = player.health <= 0;
     gameOverScreen.classList.toggle("hidden", !gameOver);
     updateQuestProgress();
@@ -4858,6 +5137,161 @@ function getSaveObjectKey(obj) {
   return `${obj.type}:${obj.item || obj.kind || "item"}:${Math.round(obj.x)}:${Math.round(obj.y)}`;
 }
 
+function resetProgressForNewGame(name) {
+  closeOverlayPanels();
+  closeDialog();
+  closeShop();
+  inventoryOpen = false;
+  inventoryPanel?.classList.add("hidden");
+  gameOver = false;
+  gameOverScreen.classList.add("hidden");
+  gameStarted = false;
+
+  Object.assign(inventory, {
+    cristais: 0,
+    chaves: 0,
+    pocoes: 1,
+    moedas: 8,
+    espadas: 0,
+    cartas: 0,
+    fragmentos: 0,
+    flechas: 12,
+    chavesRaras: 0,
+    manaOrbes: 0,
+    itensBoss: []
+  });
+
+  Object.assign(quest, {
+    status: "notStarted",
+    collected: 0,
+    total: 3,
+    reward: "Amuleto da Vila"
+  });
+
+  Object.assign(questBook, {
+    keyFound: false,
+    forestMonstersDefeated: 0,
+    forestMonstersGoal: 3,
+    letterPicked: false,
+    letterDelivered: false,
+    bossDefeated: false,
+    bossChestOpened: false,
+    defeatedBosses: {},
+    openedChests: {},
+    discoveredAreas: {}
+  });
+
+  Object.assign(dimensionQuest, {
+    entered: false,
+    status: "notStarted",
+    activatedCrystals: 0,
+    totalCrystals: 3,
+    bridgeOpen: false,
+    chestOpened: false,
+    missionDone: false
+  });
+
+  for (const key of Object.keys(activePowerUps)) activePowerUps[key] = 0;
+  lootItems.length = 0;
+  projectiles.length = 0;
+  enemyProjectiles.length = 0;
+  floatingTexts.length = 0;
+  shockwaves.length = 0;
+  dashTrails.length = 0;
+  healBursts.length = 0;
+  hazardZones.length = 0;
+
+  for (const obj of villageObjects) {
+    if (obj.type === "collectible" || obj.type === "crystal") obj.collected = false;
+    if (obj.type === "enemy") {
+      obj.alive = true;
+      obj.hp = obj.maxHp;
+      obj.phase = 1;
+      obj.x = obj.spawnX ?? obj.x;
+      obj.y = obj.spawnY ?? obj.y;
+      normalizeEnemy(obj);
+    }
+  }
+
+  for (const obj of crystalDimensionObjects) {
+    if (obj.type === "dimensionCrystal") {
+      obj.activated = false;
+      obj.activatedAt = 0;
+    }
+    if (obj.type === "dimensionChest") obj.opened = false;
+  }
+
+  for (const obj of powerUps) obj.collected = false;
+
+  Object.assign(player, {
+    name: sanitizePlayerName(name, DEFAULT_NEW_PLAYER_NAME),
+    x: player.startX,
+    y: player.startY,
+    speed: 150,
+    baseSpeed: 150,
+    maxHealth: 5,
+    health: 5,
+    defense: 0,
+    critChance: 0.12,
+    level: 1,
+    xp: 0,
+    xpToNextLevel: getXpToNextLevel(1),
+    maxLevel: PLAYER_MAX_LEVEL,
+    totalXp: 0,
+    skillPoints: 0,
+    damageBonus: 0,
+    levelGlowTimer: 0,
+    maxMana: 6,
+    mana: 6,
+    maxOxygen: 10,
+    oxygen: 10,
+    isSwimming: false,
+    direction: "down",
+    moving: false,
+    frame: 0,
+    animTimer: 0
+  });
+  Object.assign(player.spellCooldowns, { fireball: 0, blueRay: 0, dash: 0, shockwave: 0, heal: 0 });
+  player.unlockedWeapons = ["sword", "bow", "staff", "spear"];
+  currentWeaponIndex = 0;
+  equippedPower = "fireball";
+  lastVillagePosition = { x: player.startX, y: player.startY };
+  playerInvulnerableTimer = 0;
+  playerKnockbackX = 0;
+  playerKnockbackY = 0;
+  damageCooldown = 0;
+  weaponCooldownTimer = 0;
+  dodgeCooldownTimer = 0;
+  hitstopTimer = 0;
+
+  setActiveScene("village");
+  normalizeRuntimeState();
+  if (characterNameInput) characterNameInput.value = getPlayerDisplayName();
+  updateHud();
+  updateQuestProgress();
+  renderInventory();
+}
+
+function startNewGame() {
+  ensureAudio();
+  startMusic();
+  updateDeviceMode();
+  setPause(false);
+  const chosenName = getNameFromInput();
+  if (readSaveRaw()) {
+    const confirmed = window.confirm("Existe um save antigo. Comecar do zero e apagar o progresso salvo?");
+    if (!confirmed) {
+      startMessage.textContent = "Novo jogo cancelado. Use Continuar para carregar o save.";
+      return;
+    }
+  }
+
+  resetProgressForNewGame(chosenName);
+  gameStarted = true;
+  startScreen.classList.add("hidden");
+  saveGame();
+}
+
 function startGame(loadSave = false) {
   ensureAudio();
   startMusic();
@@ -4870,6 +5304,7 @@ function startGame(loadSave = false) {
   }
 
   normalizeRuntimeState();
+  if (!loadSave) setPlayerName(getNameFromInput(), DEFAULT_NEW_PLAYER_NAME);
   gameStarted = true;
   startScreen.classList.add("hidden");
   updateHud();
@@ -4967,6 +5402,10 @@ function playSound(name) {
   } else if (name === "equipItem") {
     playTone(480, 0.05, "square", 0.05);
     setTimeout(() => playTone(720, 0.06, "square", 0.04), 55);
+  } else if (name === "levelUp") {
+    playTone(520, 0.08, "triangle", 0.07);
+    setTimeout(() => playTone(780, 0.09, "triangle", 0.065), 80);
+    setTimeout(() => playTone(1040, 0.12, "sine", 0.06), 170);
   } else if (name === "invalid") {
     playTone(110, 0.09, "sawtooth", 0.045);
   } else if (name === "hit") {
@@ -5681,7 +6120,7 @@ function angleDifference(a, b) {
 
 function getBasicAttackDamage(weaponKey = getCurrentWeaponKey()) {
   const weapon = weapons[weaponKey] || weapons.sword;
-  return weapon.damage + (inventory.espadas > 0 ? 1 : 0) + (activePowerUps.force > 0 ? 1 : 0);
+  return weapon.damage + Math.floor(player.damageBonus || 0) + (inventory.espadas > 0 ? 1 : 0) + (activePowerUps.force > 0 ? 1 : 0);
 }
 
 function getAttackRect(direction = player.direction) {
@@ -6123,7 +6562,7 @@ saveButton.addEventListener("click", () => {
     saveButton.textContent = "Salvar Jogo";
   }, 1200);
 });
-playButton.addEventListener("click", () => startGame(false));
+playButton.addEventListener("click", startNewGame);
 continueButton.addEventListener("click", () => startGame(true));
 howToButton.addEventListener("click", () => {
   showHowTo();
@@ -6131,7 +6570,7 @@ howToButton.addEventListener("click", () => {
 creditsButton.addEventListener("click", () => {
   showInfo(
     "Creditos",
-    "Gabryel Garcia o Brabo\nJogo feito em HTML, CSS e JavaScript puro.\nArte original em Canvas 2D, sons e musica com Web Audio API."
+    "Eternal Rift\n\nCriadores:\nGabryel Garcia\nVictor Ricardo Fonseca Baldin\n\nFeito em HTML, CSS e JavaScript com Canvas 2D."
   );
 });
 closeInfoButton.addEventListener("click", () => infoPanel.classList.add("hidden"));
@@ -6158,6 +6597,11 @@ pauseInventoryButton?.addEventListener("click", () => {
 pauseMenuButton?.addEventListener("click", returnToStartMenu);
 closeMissionsButton?.addEventListener("click", () => toggleMissionsPanel(false));
 closeStatusButton?.addEventListener("click", () => toggleStatusPanel(false));
+characterNameInput?.addEventListener("input", () => {
+  if (characterNameInput.value.length > 16) {
+    characterNameInput.value = characterNameInput.value.slice(0, 16);
+  }
+});
 closeInventoryButton?.addEventListener("click", () => toggleInventory(false));
 inventoryTabs?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-inventory-tab]");

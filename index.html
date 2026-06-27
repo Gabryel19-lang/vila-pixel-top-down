@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>Vila Pixel Top-Down</title>
+  <title>Eternal Rift</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -11,9 +11,20 @@
     <section class="game-panel" aria-label="Jogo 2D top-down">
       <div id="startScreen" class="start-screen">
         <div class="start-content">
-          <h1>Gabryel Garcia o Brabo</h1>
-          <p>Uma aventura pixel art pela Vila Pixel.</p>
-          <button id="playButton" type="button">Jogar</button>
+          <div class="start-portal" aria-hidden="true">
+            <span></span>
+            <span></span>
+            <span></span>
+          </div>
+          <p class="start-kicker">RPG top-down em Canvas 2D</p>
+          <h1>Eternal Rift</h1>
+          <p class="start-subtitle">A Jornada Entre Dimensoes</p>
+          <p class="start-creators">Criadores: Gabryel Garcia e Victor Ricardo Fonseca Baldin</p>
+          <label class="name-field" for="characterNameInput">
+            <span>Nome do personagem</span>
+            <input id="characterNameInput" type="text" maxlength="16" placeholder="Digite o nome do personagem" autocomplete="off">
+          </label>
+          <button id="playButton" type="button">Novo Jogo</button>
           <button id="continueButton" type="button">Continuar</button>
           <button id="startFullscreenButton" type="button">Tela cheia</button>
           <button id="howToButton" type="button">Como Jogar</button>
@@ -30,6 +41,8 @@
         <div>
           <span class="hud-label">Heroi</span>
           <strong id="playerName">Lia</strong>
+          <span id="xpHud" class="xp-hud">XP: 0/58</span>
+          <span class="xp-bar"><span id="xpFill"></span></span>
         </div>
         <div>
           <span class="hud-label">Area</span>
@@ -217,8 +230,8 @@
     </section>
 
     <aside class="controls">
-      <h1>Vila Pixel</h1>
-      <p>Explore a vila, fale com moradores e leia as placas.</p>
+      <h1>Eternal Rift</h1>
+      <p>Explore a vila, atravesse dimensoes e evolua seu personagem.</p>
       <ul>
         <li><strong>W A S D</strong> ou <strong>setas</strong>: mover</li>
         <li><strong>E</strong>: interagir</li>
