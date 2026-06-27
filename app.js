@@ -3030,6 +3030,20 @@ function sanitizePlayerName(name, fallback = FALLBACK_PLAYER_NAME) {
   return cleaned || fallback;
 }
 
+function isTypingInTextField() {
+  const el = document.activeElement;
+  return Boolean(el && (
+    el.tagName === "INPUT" ||
+    el.tagName === "TEXTAREA" ||
+    el.tagName === "SELECT" ||
+    el.isContentEditable
+  ));
+}
+
+function isInfoPanelOpen() {
+  return Boolean(infoPanel && !infoPanel.classList.contains("hidden"));
+}
+
 function getNameFromInput() {
   return sanitizePlayerName(characterNameInput?.value, DEFAULT_NEW_PLAYER_NAME);
 }
@@ -6307,8 +6321,20 @@ function selectMobileTargetFromPoint(event) {
 
 window.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
+  const gameplayKeys = ["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d", "e", "i", "u", "q", "r", "f", "c", "m", "escape", "f3", " ", "tab", "1", "2", "3", "4"];
 
-  if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d", "e", "i", "u", "q", "r", "f", "c", "m", "escape", "f3", " ", "tab", "1", "2", "3", "4"].includes(key)) {
+  if (isTypingInTextField()) {
+    keys.clear();
+    if (key === "escape") {
+      document.activeElement?.blur();
+    } else if (key === "enter" && !gameStarted && document.activeElement === characterNameInput) {
+      event.preventDefault();
+      startNewGame();
+    }
+    return;
+  }
+
+  if (gameplayKeys.includes(key)) {
     event.preventDefault();
   }
 
@@ -6319,13 +6345,17 @@ window.addEventListener("keydown", (event) => {
     return;
   }
 
-  if (key === "m") {
-    toggleMissionsPanel();
+  if (isInfoPanelOpen()) {
+    if (key === "escape" || key === "enter") {
+      infoPanel.classList.add("hidden");
+    }
     return;
   }
 
-  if (key === "c") {
-    toggleStatusPanel();
+  if (!gameStarted) {
+    keys.clear();
+    if (key === "enter") startNewGame();
+    if (key === "escape") closeOverlayPanels();
     return;
   }
 
@@ -6334,9 +6364,39 @@ window.addEventListener("keydown", (event) => {
       toggleInventory(false);
     } else if (missionsOpen || statusOpen) {
       closeOverlayPanels();
+    } else if (shopOpen) {
+      closeShop();
+      closeDialog();
+    } else if (dialogOpen) {
+      closeDialog();
     } else {
       setPause(!pauseOpen);
     }
+    return;
+  }
+
+  if (key === "m" && !inventoryOpen && !shopOpen && !dialogOpen) {
+    toggleMissionsPanel();
+    return;
+  }
+
+  if (key === "c" && !inventoryOpen && !shopOpen && !dialogOpen) {
+    toggleStatusPanel();
+    return;
+  }
+
+  if (key === "i") {
+    toggleInventory();
+    return;
+  }
+
+  if (dialogOpen || shopOpen) {
+    if (key === "e") toggleInteraction();
+    return;
+  }
+
+  if (inventoryOpen || missionsOpen || statusOpen) {
+    keys.clear();
     return;
   }
 
@@ -6351,11 +6411,6 @@ window.addEventListener("keydown", (event) => {
 
   if (key === "tab") {
     cycleWeapon();
-    return;
-  }
-
-  if (key === "i") {
-    toggleInventory();
     return;
   }
 
@@ -6597,6 +6652,10 @@ pauseInventoryButton?.addEventListener("click", () => {
 pauseMenuButton?.addEventListener("click", returnToStartMenu);
 closeMissionsButton?.addEventListener("click", () => toggleMissionsPanel(false));
 closeStatusButton?.addEventListener("click", () => toggleStatusPanel(false));
+characterNameInput?.addEventListener("focus", () => {
+  keys.clear();
+  resetJoystick();
+});
 characterNameInput?.addEventListener("input", () => {
   if (characterNameInput.value.length > 16) {
     characterNameInput.value = characterNameInput.value.slice(0, 16);

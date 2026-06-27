@@ -1936,3 +1936,190 @@ canvas {
     margin-top: 2px;
   }
 }
+
+/* Menu inicial compacto: as informacoes longas ficam no botao "Como Jogar". */
+.game-shell {
+  grid-template-columns: minmax(0, 1fr);
+  width: min(980px, calc(100vw - 24px));
+}
+
+.controls {
+  display: none;
+}
+
+.start-screen {
+  padding: 14px;
+}
+
+.start-content {
+  width: min(540px, calc(100vw - 32px));
+  max-height: min(86vh, 650px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 15px 18px 16px;
+  border-width: 3px;
+}
+
+.start-content::before {
+  top: 4px;
+  height: 1px;
+}
+
+.start-content::after {
+  inset: 6px;
+}
+
+.start-portal {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 7px;
+  border-width: 4px;
+  box-shadow:
+    0 0 0 4px rgba(245, 206, 121, 0.34),
+    0 0 20px rgba(185, 108, 255, 0.58);
+}
+
+.start-portal::before {
+  inset: 11px;
+}
+
+.start-portal span {
+  width: 6px;
+  height: 6px;
+}
+
+.start-content h1 {
+  margin-bottom: 4px;
+  font-size: clamp(1.8rem, 5vw, 2.55rem);
+}
+
+.start-kicker {
+  margin-bottom: 4px;
+  font-size: 0.62rem;
+}
+
+.start-subtitle {
+  margin-bottom: 5px;
+  font-size: 0.9rem;
+}
+
+.start-creators {
+  margin-bottom: 9px;
+  font-size: 0.72rem;
+}
+
+.name-field {
+  margin: 8px 0 10px;
+  gap: 4px;
+}
+
+.name-field span {
+  font-size: 0.62rem;
+}
+
+.name-field input {
+  min-height: 38px;
+  border-width: 2px;
+  padding: 7px 10px;
+  font-size: 0.9rem;
+}
+
+.start-actions {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.start-actions #playButton {
+  grid-column: 1 / -1;
+}
+
+.start-content button {
+  width: 100%;
+  min-height: 36px;
+  margin-top: 0;
+  padding: 7px 10px;
+  border-width: 2px;
+  font-size: 0.82rem;
+}
+
+#startMessage {
+  position: relative;
+  z-index: 1;
+  min-height: 1.1em;
+  margin: 8px 0 0;
+  font-size: 0.78rem;
+  line-height: 1.25;
+}
+
+.info-panel {
+  max-height: min(78vh, 560px);
+  overflow-y: auto;
+}
+
+@media (max-width: 880px) {
+  .game-shell {
+    width: 100vw;
+  }
+
+  .start-screen {
+    align-items: center;
+    padding: max(8px, env(safe-area-inset-top)) max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  }
+
+  .start-content {
+    width: min(430px, calc(100vw - 18px));
+    max-height: calc(100dvh - 18px);
+    padding: 12px;
+  }
+
+  .start-portal {
+    width: 56px;
+    height: 56px;
+    margin-bottom: 5px;
+  }
+
+  .start-portal::before {
+    inset: 9px;
+  }
+
+  .start-content h1 {
+    font-size: clamp(1.35rem, 8vw, 1.85rem);
+  }
+
+  .start-subtitle {
+    font-size: 0.74rem;
+  }
+
+  .start-creators {
+    font-size: 0.64rem;
+    margin-bottom: 7px;
+  }
+
+  .name-field {
+    margin: 7px 0 9px;
+  }
+
+  .name-field input {
+    min-height: 40px;
+    padding: 7px 9px;
+    font-size: 0.88rem;
+  }
+
+  .start-actions {
+    gap: 6px;
+  }
+
+  .start-content button {
+    min-height: 36px;
+    padding: 6px 8px;
+    font-size: 0.72rem;
+  }
+
+  .info-panel {
+    width: min(430px, calc(100vw - 18px));
+    max-height: calc(100dvh - 32px);
+  }
+}

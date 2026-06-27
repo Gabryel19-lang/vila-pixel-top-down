@@ -62,6 +62,9 @@ Link pronto para compartilhar no celular:
 
 Na tela inicial, digite o nome do personagem no campo **Digite o nome do personagem**.
 Se deixar vazio, o jogo usa o nome padrao **Upminaa**. O nome fica salvo junto com o progresso.
+Enquanto o campo de nome esta selecionado, as teclas do jogo ficam bloqueadas para permitir digitar normalmente.
+
+O menu inicial usa um painel central compacto. As informacoes longas de controle ficam no botao **Como Jogar**.
 
 - `W A S D` ou setas do teclado: mover personagem
 - `E`: interagir com placas e NPCs
