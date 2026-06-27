@@ -16,7 +16,10 @@ const playerNameEl = document.getElementById("playerName");
 const playerPositionEl = document.getElementById("playerPosition");
 const questProgressEl = document.getElementById("questProgress");
 const healthHud = document.getElementById("healthHud");
+const manaHud = document.getElementById("manaHud");
+const manaFill = document.getElementById("manaFill");
 const coinHud = document.getElementById("coinHud");
+const powerHud = document.getElementById("powerHud");
 const resetButton = document.getElementById("resetButton");
 const dialogBox = document.getElementById("dialogBox");
 const dialogText = document.getElementById("dialogText");
@@ -37,11 +40,15 @@ const touchDirectionButtons = document.querySelectorAll("[data-touch-key]");
 const touchActionButton = document.getElementById("touchActionButton");
 const touchAttackButton = document.getElementById("touchAttackButton");
 const touchInventoryButton = document.getElementById("touchInventoryButton");
+const touchFireballButton = document.getElementById("touchFireballButton");
+const touchDashButton = document.getElementById("touchDashButton");
+const touchShockwaveButton = document.getElementById("touchShockwaveButton");
+const touchHealButton = document.getElementById("touchHealButton");
 
 const SAVE_KEY = "gabryel-garcia-o-brabo-save-v1";
 const TILE = 32;
-const MAP_COLS = 64;
-const MAP_ROWS = 46;
+const MAP_COLS = 82;
+const MAP_ROWS = 60;
 const WORLD_WIDTH = MAP_COLS * TILE;
 const WORLD_HEIGHT = MAP_ROWS * TILE;
 const HOME_COLS = 30;
@@ -70,6 +77,36 @@ let audioContext = null;
 let musicGain = null;
 let musicTimer = null;
 let lastErrorMessage = "";
+let attackWindupTimer = 0;
+let attackRecoveryTimer = 0;
+let attackHitDone = false;
+let attackDirection = "down";
+let hitstopTimer = 0;
+let playerInvulnerableTimer = 0;
+let playerKnockbackX = 0;
+let playerKnockbackY = 0;
+let regenTickTimer = 0;
+
+const activePowerUps = {
+  speed: 0,
+  force: 0,
+  shield: 0,
+  regen: 0
+};
+
+const projectiles = [];
+const enemyProjectiles = [];
+const floatingTexts = [];
+const shockwaves = [];
+const dashTrails = [];
+const healBursts = [];
+
+const spellCosts = {
+  fireball: 2,
+  dash: 1,
+  shockwave: 3,
+  heal: 3
+};
 
 const quest = {
   status: "notStarted",
@@ -92,7 +129,9 @@ const questBook = {
   forestMonstersDefeated: 0,
   forestMonstersGoal: 3,
   letterPicked: false,
-  letterDelivered: false
+  letterDelivered: false,
+  bossDefeated: false,
+  bossChestOpened: false
 };
 
 const dimensionQuest = {
@@ -124,6 +163,15 @@ const player = {
   speed: 150,
   maxHealth: 5,
   health: 5,
+  maxMana: 6,
+  mana: 6,
+  manaRegen: 0.45,
+  spellCooldowns: {
+    fireball: 0,
+    dash: 0,
+    shockwave: 0,
+    heal: 0
+  },
   direction: "down",
   moving: false,
   frame: 0,
@@ -164,6 +212,27 @@ function createWorldMap() {
 
   paintEllipse(map, 50, 13, 8, 6, "W");
   paintEllipse(map, 54, 17, 6, 4, "W");
+
+  // Expansao do mapa: novas regioes conectadas por caminhos.
+  fillRect(map, 60, 6, 15, 11, "P");   // ruinas antigas
+  fillRect(map, 58, 30, 18, 11, "G");  // campo aberto
+  fillRect(map, 3, 47, 18, 10, "F");   // cemiterio abandonado
+  fillRect(map, 0, 45, 25, 15, "F");   // floresta profunda
+  fillRect(map, 61, 43, 13, 10, "P");  // arena de treino
+  fillRect(map, 70, 45, 10, 12, "F");  // monstros fortes
+
+  fillRect(map, 56, 24, 4, 23, "D");
+  fillRect(map, 31, 40, 30, 3, "D");
+  fillRect(map, 18, 49, 45, 3, "D");
+  fillRect(map, 67, 16, 4, 29, "D");
+  fillRect(map, 63, 38, 9, 3, "D");
+  fillRect(map, 65, 48, 10, 3, "D");
+  fillRect(map, 6, 51, 16, 3, "D");
+  fillRect(map, 51, 52, 14, 2, "D");   // caminho secreto
+
+  paintEllipse(map, 66, 24, 10, 7, "W");
+  paintEllipse(map, 73, 24, 6, 5, "W");
+  paintEllipse(map, 62, 27, 5, 4, "W");
 
   return map;
 }
@@ -322,7 +391,40 @@ const villageObjects = [
   flower(9, 33, "pink"), flower(45, 31, "yellow"), flower(52, 24, "blue"),
   flower(56, 22, "pink"), flower(24, 35, "yellow"), flower(34, 34, "blue"),
   rock(15, 12), rock(11, 19), rock(47, 19), rock(56, 27),
-  rock(18, 35), rock(41, 36), rock(7, 38), rock(58, 10)
+  rock(18, 35), rock(41, 36), rock(7, 38), rock(58, 10),
+
+  sign(33, 28, "MAPA EXPANDIDO: siga o novo caminho ao sul da praca para descobrir outras regioes."),
+  sign(63, 18, "Lago Maior: a agua magica ficou mais profunda nesta parte da vila."),
+  sign(61, 9, "Ruinas Antigas: dizem que um guardiao desperta quando alguem treina magia aqui."),
+  sign(58, 37, "Campo Aberto: bom para testar dash e bola de fogo."),
+  sign(7, 50, "Cemiterio Abandonado: os moradores evitam passar aqui de noite."),
+  sign(63, 43, "Arena de Treino: pratique ataques, poderes e esquiva."),
+  sign(72, 46, "Area Perigosa: monstros fortes causam mais dano."),
+  sign(53, 53, "Caminho Secreto: siga as pedras claras ate a floresta profunda."),
+
+  house(60, 32, "Casa do Campo"),
+  house(72, 34, "Casa do Treinador"),
+  house(6, 53, "Cabana Esquecida"),
+  fence(61, 42, 12, "horizontal"),
+  fence(61, 52, 12, "horizontal"),
+  fence(61, 43, 8, "vertical"),
+  fence(72, 43, 8, "vertical"),
+  fence(3, 46, 16, "horizontal"),
+
+  tree(2, 48), tree(5, 46), tree(9, 45), tree(13, 46), tree(17, 48),
+  tree(3, 55), tree(12, 56), tree(19, 54), tree(24, 50), tree(27, 52),
+  tree(73, 47), tree(77, 48), tree(80, 52), tree(76, 56), tree(70, 57),
+  tree(58, 29), tree(61, 30), tree(75, 31), tree(78, 34),
+  rock(60, 8), rock(65, 9), rock(72, 12), rock(68, 15),
+  rock(58, 35), rock(70, 38), rock(64, 47), rock(75, 50),
+  flower(59, 33, "yellow"), flower(63, 36, "blue"), flower(70, 32, "pink"),
+  flower(74, 39, "yellow"), flower(12, 49, "blue"), flower(16, 54, "pink"),
+
+  enemy(62, 35, "slime"), enemy(67, 37, "morcego"),
+  enemy(9, 51, "mago"), enemy(15, 53, "slimeVermelho"),
+  enemy(73, 49, "slimeVermelho"), enemy(77, 52, "golem"),
+  enemy(68, 47, "guardiao"),
+  rareChest(67, 49)
 ];
 
 const homeObjects = [
@@ -391,6 +493,19 @@ const crystalDimensionObjects = [
   strangeTree(5, 23), strangeTree(39, 26), strangeTree(6, 14), strangeTree(36, 14),
   floatingRock(14, 18), floatingRock(32, 18), floatingRock(18, 24), floatingRock(27, 24),
   floatingRock(20, 9), floatingRock(27, 9)
+];
+
+const powerUps = [
+  powerUp(35, 29, "speed"),
+  powerUp(60, 35, "speed"),
+  powerUp(64, 11, "force"),
+  powerUp(73, 50, "force"),
+  powerUp(64, 45, "shield"),
+  powerUp(8, 52, "shield"),
+  powerUp(12, 50, "regen"),
+  powerUp(70, 38, "regen"),
+  powerUp(58, 52, "mana"),
+  powerUp(69, 24, "mana")
 ];
 
 let objects = villageObjects;
@@ -727,6 +842,18 @@ function interiorChest(tileX, tileY) {
   };
 }
 
+function rareChest(tileX, tileY) {
+  return {
+    type: "rareChest",
+    x: tileX * TILE,
+    y: tileY * TILE + 8,
+    width: TILE * 2,
+    height: TILE,
+    solid: true,
+    message: "Bau raro do Guardiao: parece esperar a queda do boss."
+  };
+}
+
 function interiorPlant(tileX, tileY) {
   return {
     type: "plant",
@@ -786,22 +913,89 @@ function collectible(tileX, tileY, item) {
   };
 }
 
+function powerUp(tileX, tileY, kind, dropped = false) {
+  return {
+    type: "powerUp",
+    kind,
+    x: tileX * TILE + 7,
+    y: tileY * TILE + 7,
+    width: 18,
+    height: 18,
+    solid: false,
+    collected: false,
+    dropped
+  };
+}
+
 function enemy(tileX, tileY, kind) {
+  const stats = getEnemyStats(kind);
   return {
     type: "enemy",
     kind,
     x: tileX * TILE + 4,
     y: tileY * TILE + 4,
-    width: kind === "morcego" ? 24 : 22,
-    height: kind === "morcego" ? 18 : 20,
+    width: stats.width,
+    height: stats.height,
     solid: false,
-    hp: kind === "morcego" ? 2 : 3,
-    maxHp: kind === "morcego" ? 2 : 3,
-    speed: kind === "morcego" ? 75 : 45,
+    hp: stats.hp,
+    maxHp: stats.hp,
+    damage: stats.damage,
+    speed: stats.speed,
+    state: "idle",
+    spawnX: tileX * TILE + 4,
+    spawnY: tileY * TILE + 4,
+    aggroRange: stats.aggroRange,
+    attackRange: stats.attackRange,
+    attackCooldown: 0,
+    attackDelay: stats.attackDelay,
+    invulnerableTimer: 0,
+    knockbackX: 0,
+    knockbackY: 0,
+    dropTable: stats.dropTable,
+    coinReward: stats.coinReward,
+    boss: stats.boss,
     direction: Math.random() > 0.5 ? "left" : "right",
     moveTimer: 0,
     alive: true
   };
+}
+
+function getEnemyStats(kind) {
+  const stats = {
+    slime: {
+      width: 22, height: 20, hp: 3, damage: 1, speed: 45,
+      aggroRange: 190, attackRange: 28, attackDelay: 1.1, coinReward: 3,
+      dropTable: { coin: 0.75, potion: 0.12, powerUp: 0.15 }
+    },
+    slimeVermelho: {
+      width: 24, height: 22, hp: 5, damage: 2, speed: 52,
+      aggroRange: 230, attackRange: 30, attackDelay: 1.0, coinReward: 6,
+      dropTable: { coin: 0.9, potion: 0.16, powerUp: 0.22 }
+    },
+    morcego: {
+      width: 24, height: 18, hp: 2, damage: 1, speed: 82,
+      aggroRange: 250, attackRange: 26, attackDelay: 0.9, coinReward: 5,
+      dropTable: { coin: 0.8, potion: 0.08, powerUp: 0.16 }
+    },
+    golem: {
+      width: 30, height: 30, hp: 9, damage: 2, speed: 32,
+      aggroRange: 220, attackRange: 36, attackDelay: 1.35, coinReward: 10,
+      dropTable: { coin: 1, potion: 0.2, powerUp: 0.24 }
+    },
+    mago: {
+      width: 24, height: 28, hp: 4, damage: 1, speed: 38,
+      aggroRange: 280, attackRange: 210, attackDelay: 1.8, coinReward: 8,
+      dropTable: { coin: 1, potion: 0.16, powerUp: 0.28 }
+    },
+    guardiao: {
+      width: 38, height: 42, hp: 22, damage: 2, speed: 44,
+      aggroRange: 330, attackRange: 240, attackDelay: 1.35, coinReward: 35,
+      dropTable: { coin: 1, potion: 1, powerUp: 1 },
+      boss: true
+    }
+  };
+
+  return stats[kind] || stats.slime;
 }
 
 function npc(tileX, tileY, name, message, role = "villager") {
@@ -860,6 +1054,7 @@ function isWaterAt(tileX, tileY) {
 
 function isColliderActive(obj) {
   if (obj.type === "dimensionBlocker" && dimensionQuest.bridgeOpen) return false;
+  if (obj.type === "rareChest" && (!questBook.bossDefeated || questBook.bossChestOpened)) return false;
   return obj.solid;
 }
 
@@ -949,6 +1144,8 @@ function setActiveScene(scene) {
   closeDialog();
   closeShop();
   keys.clear();
+  projectiles.length = 0;
+  enemyProjectiles.length = 0;
 }
 
 function enterHome() {
@@ -1074,6 +1271,16 @@ function update(delta) {
     return;
   }
 
+  updateTimedEffects(delta);
+  if (hitstopTimer > 0) {
+    hitstopTimer = Math.max(0, hitstopTimer - delta);
+    updateAttack(delta);
+    updateFloatingTexts(delta);
+    updateVisualEffects(delta);
+    updateHud();
+    return;
+  }
+
   const inputX = (keys.has("arrowright") || keys.has("d") ? 1 : 0) -
     (keys.has("arrowleft") || keys.has("a") ? 1 : 0);
   const inputY = (keys.has("arrowdown") || keys.has("s") ? 1 : 0) -
@@ -1081,10 +1288,12 @@ function update(delta) {
 
   player.moving = inputX !== 0 || inputY !== 0;
 
-  if (player.moving && !dialogOpen && !inventoryOpen && !shopOpen) {
+  applyPlayerKnockback(delta);
+
+  if (player.moving && !dialogOpen && !inventoryOpen && !shopOpen && Math.abs(playerKnockbackX) + Math.abs(playerKnockbackY) < 8) {
     const length = Math.hypot(inputX, inputY) || 1;
-    const moveX = (inputX / length) * player.speed * delta;
-    const moveY = (inputY / length) * player.speed * delta;
+    const moveX = (inputX / length) * getPlayerSpeed() * delta;
+    const moveY = (inputY / length) * getPlayerSpeed() * delta;
 
     if (Math.abs(inputX) > Math.abs(inputY)) {
       player.direction = inputX > 0 ? "right" : "left";
@@ -1109,13 +1318,18 @@ function update(delta) {
 
   updateNpcs(delta);
   updateEnemies(delta);
+  updateProjectiles(delta);
+  updateEnemyProjectiles(delta);
   collectWorldItems();
+  collectPowerUps();
   updateAttack(delta);
+  updateFloatingTexts(delta);
+  updateVisualEffects(delta);
 
   camera.x = clamp(player.x + player.width / 2 - canvas.width / 2, 0, getSceneWidth() - canvas.width);
   camera.y = clamp(player.y + player.height / 2 - canvas.height / 2, 0, getSceneHeight() - canvas.height);
 
-  playerPositionEl.textContent = `${getSceneName()} - X: ${Math.round(player.x)} / Y: ${Math.round(player.y)}`;
+  playerPositionEl.textContent = `${getAreaName()} - X: ${Math.round(player.x)} / Y: ${Math.round(player.y)}`;
   collectCrystals();
   updateQuestProgress();
   updateHud();
@@ -1156,32 +1370,124 @@ function updateEnemies(delta) {
 
   damageCooldown = Math.max(0, damageCooldown - delta);
   const playerRect = getPlayerRect();
+  const playerCenterX = player.x + player.width / 2;
+  const playerCenterY = player.y + player.height / 2;
 
   for (const obj of villageObjects) {
     if (obj.type !== "enemy" || !obj.alive) continue;
 
-    obj.moveTimer -= delta;
-    if (obj.moveTimer <= 0) {
-      const directions = ["up", "down", "left", "right"];
-      obj.direction = directions[Math.floor(Math.random() * directions.length)];
-      obj.moveTimer = 0.8 + Math.random() * 1.8;
+    obj.invulnerableTimer = Math.max(0, obj.invulnerableTimer - delta);
+    obj.attackCooldown = Math.max(0, obj.attackCooldown - delta);
+
+    if (Math.abs(obj.knockbackX) + Math.abs(obj.knockbackY) > 1) {
+      const nextX = obj.x + obj.knockbackX * delta;
+      const nextY = obj.y + obj.knockbackY * delta;
+      if (canEntityMoveTo(obj, nextX, obj.y)) obj.x = nextX;
+      if (canEntityMoveTo(obj, obj.x, nextY)) obj.y = nextY;
+      obj.knockbackX *= 0.84;
+      obj.knockbackY *= 0.84;
+      continue;
     }
 
-    const step = directionVector(obj.direction);
-    const nextX = obj.x + step.x * obj.speed * delta;
-    const nextY = obj.y + step.y * obj.speed * delta;
-    if (canEntityMoveTo(obj, nextX, nextY)) {
-      obj.x = nextX;
-      obj.y = nextY;
+    obj.knockbackX = 0;
+    obj.knockbackY = 0;
+
+    const enemyCenterX = obj.x + obj.width / 2;
+    const enemyCenterY = obj.y + obj.height / 2;
+    const distanceToPlayer = Math.hypot(playerCenterX - enemyCenterX, playerCenterY - enemyCenterY);
+    const distanceToSpawn = Math.hypot(obj.x - obj.spawnX, obj.y - obj.spawnY);
+
+    if ((obj.kind === "mago" || obj.kind === "guardiao") && distanceToPlayer < obj.attackRange && obj.attackCooldown <= 0) {
+      fireEnemyProjectile(obj, playerCenterX, playerCenterY);
+      obj.attackCooldown = obj.attackDelay;
+      obj.state = "attack";
+    }
+
+    if (distanceToPlayer < obj.aggroRange) {
+      obj.state = "chase";
+      moveEnemyToward(obj, playerCenterX - enemyCenterX, playerCenterY - enemyCenterY, delta);
+    } else if (distanceToSpawn > TILE * 2) {
+      obj.state = "return";
+      moveEnemyToward(obj, obj.spawnX - obj.x, obj.spawnY - obj.y, delta);
     } else {
-      obj.moveTimer = 0;
+      obj.state = "idle";
+      updateEnemyWander(obj, delta);
+    }
+
+    if (obj.boss && distanceToPlayer < 95 && obj.attackCooldown <= 0) {
+      enemyProjectiles.push({
+        type: "bossWave",
+        x: enemyCenterX,
+        y: enemyCenterY,
+        radius: 10,
+        maxRadius: 88,
+        timer: 0.7,
+        damage: obj.damage
+      });
+      obj.attackCooldown = obj.attackDelay + 0.4;
+      playSound("shockwave");
     }
 
     if (rectsOverlap(playerRect, obj) && damageCooldown <= 0) {
-      takeDamage(1);
-      damageCooldown = 1.1;
+      takeDamage(obj.damage, enemyCenterX, enemyCenterY);
+      damageCooldown = obj.attackDelay;
     }
   }
+}
+
+function moveEnemyToward(obj, dx, dy, delta) {
+  const length = Math.hypot(dx, dy) || 1;
+  const nextX = obj.x + (dx / length) * obj.speed * delta;
+  const nextY = obj.y + (dy / length) * obj.speed * delta;
+
+  if (Math.abs(dx) > Math.abs(dy)) obj.direction = dx > 0 ? "right" : "left";
+  else obj.direction = dy > 0 ? "down" : "up";
+
+  if (canEntityMoveTo(obj, nextX, obj.y)) obj.x = nextX;
+  if (canEntityMoveTo(obj, obj.x, nextY)) obj.y = nextY;
+}
+
+function updateEnemyWander(obj, delta) {
+  obj.moveTimer -= delta;
+  if (obj.moveTimer <= 0) {
+    const directions = ["up", "down", "left", "right", "idle"];
+    obj.direction = directions[Math.floor(Math.random() * directions.length)];
+    obj.moveTimer = 0.8 + Math.random() * 1.8;
+  }
+
+  if (obj.direction === "idle") return;
+  const step = directionVector(obj.direction);
+  const nextX = obj.x + step.x * obj.speed * 0.55 * delta;
+  const nextY = obj.y + step.y * obj.speed * 0.55 * delta;
+  const nearSpawn = Math.hypot(nextX - obj.spawnX, nextY - obj.spawnY) < TILE * 4;
+  if (nearSpawn && canEntityMoveTo(obj, nextX, nextY)) {
+    obj.x = nextX;
+    obj.y = nextY;
+  } else {
+    obj.moveTimer = 0;
+  }
+}
+
+function fireEnemyProjectile(obj, targetX, targetY) {
+  const centerX = obj.x + obj.width / 2;
+  const centerY = obj.y + obj.height / 2;
+  const dx = targetX - centerX;
+  const dy = targetY - centerY;
+  const length = Math.hypot(dx, dy) || 1;
+  const speed = obj.boss ? 185 : 150;
+
+  enemyProjectiles.push({
+    type: obj.boss ? "bossBolt" : "shadowBolt",
+    x: centerX - 5,
+    y: centerY - 5,
+    width: obj.boss ? 14 : 10,
+    height: obj.boss ? 14 : 10,
+    vx: (dx / length) * speed,
+    vy: (dy / length) * speed,
+    damage: obj.damage,
+    timer: obj.boss ? 2.2 : 1.9
+  });
+  playSound("enemyMagic");
 }
 
 function directionVector(direction) {
@@ -1189,6 +1495,402 @@ function directionVector(direction) {
   if (direction === "right") return { x: 1, y: 0 };
   if (direction === "up") return { x: 0, y: -1 };
   return { x: 0, y: 1 };
+}
+
+function getPlayerSpeed() {
+  return player.speed + (activePowerUps.speed > 0 ? 70 : 0);
+}
+
+function getAreaName() {
+  if (currentScene !== "village") return getSceneName();
+  const tileX = Math.floor(player.x / TILE);
+  const tileY = Math.floor(player.y / TILE);
+
+  if (tileX >= 60 && tileY <= 18) return "Ruinas Antigas";
+  if (tileX >= 61 && tileY >= 43 && tileY <= 54) return "Arena de Treino";
+  if (tileX >= 70 && tileY >= 45) return "Monstros Fortes";
+  if (tileX <= 25 && tileY >= 45) return "Floresta Profunda";
+  if (tileX <= 21 && tileY >= 47) return "Cemiterio Abandonado";
+  if (tileX >= 58 && tileY >= 30 && tileY <= 41) return "Campo Aberto";
+  if (tileX >= 58 && tileY >= 18 && tileY <= 30) return "Lago Maior";
+  if (tileX >= 51 && tileY >= 51) return "Caminho Secreto";
+  return "Vila Principal";
+}
+
+function updateTimedEffects(delta) {
+  updatePowerUps(delta);
+  playerInvulnerableTimer = Math.max(0, playerInvulnerableTimer - delta);
+  player.mana = Math.min(player.maxMana, player.mana + player.manaRegen * delta);
+
+  for (const key of Object.keys(player.spellCooldowns)) {
+    player.spellCooldowns[key] = Math.max(0, player.spellCooldowns[key] - delta);
+  }
+}
+
+function updatePowerUps(delta) {
+  for (const key of Object.keys(activePowerUps)) {
+    activePowerUps[key] = Math.max(0, activePowerUps[key] - delta);
+  }
+
+  if (activePowerUps.regen > 0) {
+    regenTickTimer += delta;
+    if (regenTickTimer >= 1.2) {
+      regenTickTimer = 0;
+      if (player.health < player.maxHealth) {
+        player.health = Math.min(player.maxHealth, player.health + 1);
+        spawnFloatingText("+1", player.x + 8, player.y - 8, "#7bdb73");
+      }
+    }
+  } else {
+    regenTickTimer = 0;
+  }
+}
+
+function applyPlayerKnockback(delta) {
+  if (Math.abs(playerKnockbackX) + Math.abs(playerKnockbackY) < 1) {
+    playerKnockbackX = 0;
+    playerKnockbackY = 0;
+    return;
+  }
+
+  const nextX = player.x + playerKnockbackX * delta;
+  const nextY = player.y + playerKnockbackY * delta;
+  if (canMoveTo(nextX, player.y)) player.x = nextX;
+  if (canMoveTo(player.x, nextY)) player.y = nextY;
+  playerKnockbackX *= 0.86;
+  playerKnockbackY *= 0.86;
+}
+
+function spendMana(cost) {
+  if (player.mana < cost) {
+    spawnFloatingText("Mana insuficiente!", player.x - 18, player.y - 18, "#55e8ff");
+    return false;
+  }
+
+  player.mana = Math.max(0, player.mana - cost);
+  return true;
+}
+
+function canUsePower(name, cost) {
+  if (gameOver || dialogOpen || inventoryOpen || shopOpen) return false;
+  if (player.spellCooldowns[name] > 0) return false;
+  return spendMana(cost);
+}
+
+function castFireball() {
+  if (!canUsePower("fireball", spellCosts.fireball)) return;
+
+  const vector = directionVector(player.direction);
+  const centerX = player.x + player.width / 2;
+  const centerY = player.y + player.height / 2;
+  projectiles.push({
+    type: "fireball",
+    x: centerX - 6,
+    y: centerY - 6,
+    width: 12,
+    height: 12,
+    vx: vector.x * 330,
+    vy: vector.y * 330,
+    damage: activePowerUps.force > 0 ? 4 : 3,
+    distance: 0,
+    maxDistance: 360
+  });
+  player.spellCooldowns.fireball = 0.55;
+  playSound("magic");
+}
+
+function dash() {
+  if (!canUsePower("dash", spellCosts.dash)) return;
+
+  const vector = directionVector(player.direction);
+  let moved = 0;
+  for (let i = 0; i < 12; i++) {
+    const nextX = player.x + vector.x * 12;
+    const nextY = player.y + vector.y * 12;
+    if (!canMoveTo(nextX, nextY)) break;
+    dashTrails.push({ x: player.x, y: player.y, timer: 0.22, direction: player.direction });
+    player.x = nextX;
+    player.y = nextY;
+    moved += 12;
+  }
+
+  if (moved > 0) {
+    playerInvulnerableTimer = Math.max(playerInvulnerableTimer, 0.35);
+    player.spellCooldowns.dash = 1.0;
+    playSound("dash");
+  }
+}
+
+function shockwave() {
+  if (!canUsePower("shockwave", spellCosts.shockwave)) return;
+
+  const centerX = player.x + player.width / 2;
+  const centerY = player.y + player.height / 2;
+  const radius = 78;
+  shockwaves.push({ x: centerX, y: centerY, radius, timer: 0.32, maxTimer: 0.32 });
+
+  if (currentScene === "village") {
+    for (const obj of villageObjects) {
+      if (obj.type !== "enemy" || !obj.alive) continue;
+      const enemyCenterX = obj.x + obj.width / 2;
+      const enemyCenterY = obj.y + obj.height / 2;
+      const distance = Math.hypot(enemyCenterX - centerX, enemyCenterY - centerY);
+      if (distance <= radius) {
+        damageEnemy(obj, 1, centerX, centerY, 260);
+      }
+    }
+  }
+
+  player.spellCooldowns.shockwave = 2.6;
+  playSound("shockwave");
+}
+
+function quickHeal() {
+  if (!canUsePower("heal", spellCosts.heal)) return;
+
+  const healed = Math.min(2, player.maxHealth - player.health);
+  if (healed <= 0) {
+    spawnFloatingText("Vida cheia", player.x - 8, player.y - 18, "#7bdb73");
+    player.mana = Math.min(player.maxMana, player.mana + spellCosts.heal);
+    return;
+  }
+
+  player.health += healed;
+  healBursts.push({ x: player.x + player.width / 2, y: player.y + player.height / 2, timer: 0.55, maxTimer: 0.55 });
+  spawnFloatingText(`+${healed}`, player.x + 8, player.y - 12, "#7bdb73");
+  player.spellCooldowns.heal = 3.0;
+  playSound("heal");
+}
+
+function updateProjectiles(delta) {
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const obj = projectiles[i];
+    const moveX = obj.vx * delta;
+    const moveY = obj.vy * delta;
+    obj.x += moveX;
+    obj.y += moveY;
+    obj.distance += Math.hypot(moveX, moveY);
+
+    if (obj.distance > obj.maxDistance || projectileHitsObstacle(obj)) {
+      projectiles.splice(i, 1);
+      continue;
+    }
+
+    if (currentScene !== "village") continue;
+    const target = villageObjects.find((enemyObj) => (
+      enemyObj.type === "enemy" &&
+      enemyObj.alive &&
+      rectsOverlap(obj, enemyObj)
+    ));
+
+    if (target) {
+      damageEnemy(target, obj.damage, obj.x, obj.y, 210);
+      projectiles.splice(i, 1);
+    }
+  }
+}
+
+function updateEnemyProjectiles(delta) {
+  const playerRect = getPlayerRect();
+
+  for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
+    const obj = enemyProjectiles[i];
+
+    if (obj.type === "bossWave") {
+      obj.timer -= delta;
+      obj.radius += (obj.maxRadius / 0.7) * delta;
+      const centerX = player.x + player.width / 2;
+      const centerY = player.y + player.height / 2;
+      const distance = Math.hypot(centerX - obj.x, centerY - obj.y);
+      if (distance <= obj.radius && distance >= obj.radius - 20 && damageCooldown <= 0) {
+        takeDamage(obj.damage, obj.x, obj.y);
+        damageCooldown = 1.0;
+      }
+      if (obj.timer <= 0) enemyProjectiles.splice(i, 1);
+      continue;
+    }
+
+    obj.timer -= delta;
+    obj.x += obj.vx * delta;
+    obj.y += obj.vy * delta;
+
+    if (obj.timer <= 0 || projectileHitsObstacle(obj)) {
+      enemyProjectiles.splice(i, 1);
+      continue;
+    }
+
+    if (rectsOverlap(playerRect, obj)) {
+      takeDamage(obj.damage, obj.x, obj.y);
+      enemyProjectiles.splice(i, 1);
+    }
+  }
+}
+
+function projectileHitsObstacle(obj) {
+  if (obj.x < 0 || obj.y < 0 || obj.x + obj.width > getSceneWidth() || obj.y + obj.height > getSceneHeight()) {
+    return true;
+  }
+
+  if (hitsWater(obj)) return true;
+  return colliders.some((collider) => isColliderActive(collider) && rectsOverlap(obj, collider));
+}
+
+function damageEnemy(obj, amount, sourceX, sourceY, knockbackPower = 170) {
+  if (!obj.alive || obj.invulnerableTimer > 0) return false;
+
+  const damage = Math.max(1, amount);
+  obj.hp -= damage;
+  obj.invulnerableTimer = 0.28;
+
+  const centerX = obj.x + obj.width / 2;
+  const centerY = obj.y + obj.height / 2;
+  const dx = centerX - sourceX;
+  const dy = centerY - sourceY;
+  const length = Math.hypot(dx, dy) || 1;
+  obj.knockbackX = (dx / length) * knockbackPower;
+  obj.knockbackY = (dy / length) * knockbackPower;
+
+  spawnFloatingText(`-${damage}`, obj.x + obj.width / 2, obj.y - 8, "#fff264");
+  playSound("hitEnemy");
+  hitstopTimer = 0.055;
+
+  if (obj.hp <= 0) defeatEnemy(obj);
+  return true;
+}
+
+function defeatEnemy(obj) {
+  obj.alive = false;
+  inventory.moedas += obj.coinReward;
+  spawnFloatingText(`+${obj.coinReward} moedas`, obj.x, obj.y - 18, "#fff264");
+  playSound(obj.boss ? "bossDown" : "enemyDown");
+
+  if (obj.kind === "slime" || obj.kind === "slimeVermelho") {
+    questBook.forestMonstersDefeated = Math.min(
+      questBook.forestMonstersGoal,
+      questBook.forestMonstersDefeated + 1
+    );
+  }
+
+  if (obj.boss) {
+    questBook.bossDefeated = true;
+    inventory.espadas += 1;
+    inventory.moedas += 20;
+    spawnFloatingText("Item raro!", obj.x, obj.y - 34, "#55e8ff");
+  }
+
+  spawnEnemyDrops(obj);
+  updateHud();
+  renderInventory();
+}
+
+function spawnEnemyDrops(obj) {
+  if (Math.random() < obj.dropTable.potion) {
+    villageObjects.push(collectible(Math.floor(obj.x / TILE), Math.floor(obj.y / TILE), "pocao"));
+  }
+
+  if (Math.random() < obj.dropTable.powerUp) {
+    const kinds = ["speed", "force", "shield", "regen", "mana"];
+    const kind = kinds[Math.floor(Math.random() * kinds.length)];
+    powerUps.push(powerUp(Math.floor(obj.x / TILE), Math.floor(obj.y / TILE), kind, true));
+  }
+}
+
+function spawnFloatingText(text, x, y, color) {
+  floatingTexts.push({ text, x, y, color, timer: 1.1, vy: -22 });
+}
+
+function updateFloatingTexts(delta) {
+  for (let i = floatingTexts.length - 1; i >= 0; i--) {
+    const obj = floatingTexts[i];
+    obj.timer -= delta;
+    obj.y += obj.vy * delta;
+    if (obj.timer <= 0) floatingTexts.splice(i, 1);
+  }
+}
+
+function updateVisualEffects(delta) {
+  for (let i = shockwaves.length - 1; i >= 0; i--) {
+    shockwaves[i].timer -= delta;
+    if (shockwaves[i].timer <= 0) shockwaves.splice(i, 1);
+  }
+
+  for (let i = dashTrails.length - 1; i >= 0; i--) {
+    dashTrails[i].timer -= delta;
+    if (dashTrails[i].timer <= 0) dashTrails.splice(i, 1);
+  }
+
+  for (let i = healBursts.length - 1; i >= 0; i--) {
+    healBursts[i].timer -= delta;
+    if (healBursts[i].timer <= 0) healBursts.splice(i, 1);
+  }
+}
+
+function drawProjectiles() {
+  for (const obj of projectiles) {
+    ctx.fillStyle = "rgba(255, 90, 58, 0.32)";
+    ctx.fillRect(obj.x - 5, obj.y - 5, obj.width + 10, obj.height + 10);
+    ctx.fillStyle = "#ff4f62";
+    ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(obj.x + 3, obj.y + 3, obj.width - 6, obj.height - 6);
+  }
+
+  for (const obj of enemyProjectiles) {
+    if (obj.type === "bossWave") {
+      ctx.strokeStyle = "rgba(255, 79, 98, 0.85)";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
+      ctx.stroke();
+      continue;
+    }
+
+    ctx.fillStyle = "rgba(180, 109, 255, 0.35)";
+    ctx.fillRect(obj.x - 4, obj.y - 4, obj.width + 8, obj.height + 8);
+    ctx.fillStyle = obj.type === "bossBolt" ? "#ff4f62" : "#b46dff";
+    ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+  }
+}
+
+function drawShockwaves() {
+  for (const obj of shockwaves) {
+    const progress = 1 - obj.timer / obj.maxTimer;
+    ctx.strokeStyle = `rgba(85, 232, 255, ${1 - progress})`;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(obj.x, obj.y, obj.radius * progress, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+function drawDashTrails() {
+  for (const obj of dashTrails) {
+    ctx.fillStyle = `rgba(85, 232, 255, ${obj.timer / 0.22})`;
+    ctx.fillRect(obj.x + 4, obj.y + 5, player.width, player.height);
+  }
+}
+
+function drawHealBursts() {
+  for (const obj of healBursts) {
+    const progress = 1 - obj.timer / obj.maxTimer;
+    ctx.strokeStyle = `rgba(123, 219, 115, ${1 - progress})`;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.arc(obj.x, obj.y, 18 + progress * 28, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+}
+
+function drawFloatingTexts() {
+  ctx.font = "bold 12px Trebuchet MS, Arial";
+  ctx.textAlign = "center";
+  for (const obj of floatingTexts) {
+    ctx.fillStyle = "rgba(26, 31, 61, 0.85)";
+    ctx.fillText(obj.text, obj.x + 1, obj.y + 1);
+    ctx.fillStyle = obj.color;
+    ctx.fillText(obj.text, obj.x, obj.y);
+  }
+  ctx.textAlign = "start";
 }
 
 function clamp(value, min, max) {
@@ -1207,9 +1909,11 @@ function draw() {
     if (obj.type === "crystal" || obj.type === "collectible") return !obj.collected;
     if (obj.type === "enemy") return obj.alive;
     if (obj.type === "dimensionBlocker" && dimensionQuest.bridgeOpen) return false;
+    if (obj.type === "rareChest") return questBook.bossDefeated && !questBook.bossChestOpened;
     return obj.type !== "block";
   });
-  const drawables = [...visibleObjects, { type: "player", y: player.y, height: player.height }];
+  const visiblePowerUps = currentScene === "village" ? powerUps.filter((obj) => !obj.collected) : [];
+  const drawables = [...visibleObjects, ...visiblePowerUps, { type: "player", y: player.y, height: player.height }];
   drawables.sort((a, b) => (a.y + a.height) - (b.y + b.height));
 
   for (const item of drawables) {
@@ -1217,6 +1921,11 @@ function draw() {
     else drawObject(item);
   }
   drawAttack();
+  drawProjectiles();
+  drawShockwaves();
+  drawDashTrails();
+  drawHealBursts();
+  drawFloatingTexts();
 
   ctx.restore();
   drawMiniMap();
@@ -1423,11 +2132,13 @@ function drawObject(obj) {
   if (obj.type === "mayorDesk") drawMayorDesk(obj);
   if (obj.type === "bookshelf") drawBookshelf(obj);
   if (obj.type === "chest") drawChest(obj);
+  if (obj.type === "rareChest") drawRareChest(obj);
   if (obj.type === "plant") drawPlant(obj);
   if (obj.type === "flower") drawFlower(obj);
   if (obj.type === "rock") drawRock(obj);
   if (obj.type === "crystal") drawCrystal(obj);
   if (obj.type === "collectible") drawCollectible(obj);
+  if (obj.type === "powerUp") drawPowerUp(obj);
   if (obj.type === "enemy") drawEnemy(obj);
   if (obj.type === "npc") drawNpc(obj);
 }
@@ -1802,6 +2513,16 @@ function drawChest(obj) {
   ctx.fillRect(obj.x + obj.width / 2 - 4, obj.y + 14, 8, 8);
 }
 
+function drawRareChest(obj) {
+  const shine = Math.sin(performance.now() / 180) * 3;
+  ctx.fillStyle = "rgba(255, 242, 100, 0.35)";
+  ctx.fillRect(obj.x - 6, obj.y - 8 + shine, obj.width + 12, obj.height + 16);
+  pixelRect(obj.x, obj.y + 8, obj.width, 22, "#8f5a3f", "#1a1f3d");
+  pixelRect(obj.x + 4, obj.y, obj.width - 8, 18, "#fff264", "#1a1f3d");
+  ctx.fillStyle = "#55e8ff";
+  ctx.fillRect(obj.x + obj.width / 2 - 5, obj.y + 14, 10, 8);
+}
+
 function drawPlant(obj) {
   pixelRect(obj.x + 5, obj.y + 18, 14, 14, "#d24c63");
   ctx.fillStyle = "#26794d";
@@ -1903,9 +2624,74 @@ function drawCollectible(obj) {
   }
 }
 
+function drawPowerUp(obj) {
+  const x = obj.x;
+  const y = obj.y + Math.sin(performance.now() / 210 + obj.x) * 2;
+  const glow = 0.28 + Math.sin(performance.now() / 180) * 0.08;
+
+  const colors = {
+    speed: "#55e8ff",
+    force: "#ff4f62",
+    shield: "#fff264",
+    regen: "#7bdb73",
+    mana: "#b46dff"
+  };
+
+  ctx.fillStyle = `rgba(255, 255, 255, ${glow})`;
+  ctx.fillRect(x - 5, y - 5, 28, 28);
+  ctx.fillStyle = "#273052";
+
+  if (obj.kind === "speed") {
+    ctx.fillRect(x + 3, y + 5, 12, 12);
+    ctx.fillStyle = colors.speed;
+    ctx.fillRect(x + 5, y + 3, 8, 10);
+    ctx.fillRect(x + 2, y + 12, 15, 5);
+    ctx.fillStyle = "#e9ffff";
+    ctx.fillRect(x + 11, y + 5, 3, 5);
+    return;
+  }
+
+  if (obj.kind === "force") {
+    ctx.fillRect(x + 8, y, 4, 20);
+    ctx.fillStyle = colors.force;
+    ctx.fillRect(x + 9, y + 1, 2, 14);
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x + 4, y + 14, 12, 3);
+    return;
+  }
+
+  if (obj.kind === "shield") {
+    ctx.fillRect(x + 3, y + 2, 14, 17);
+    ctx.fillStyle = colors.shield;
+    ctx.fillRect(x + 5, y + 4, 10, 10);
+    ctx.fillRect(x + 8, y + 14, 4, 4);
+    return;
+  }
+
+  if (obj.kind === "regen") {
+    ctx.fillStyle = colors.regen;
+    ctx.fillRect(x + 6, y + 4, 8, 4);
+    ctx.fillRect(x + 4, y + 8, 12, 4);
+    ctx.fillRect(x + 6, y + 12, 8, 4);
+    ctx.fillRect(x + 8, y + 16, 4, 3);
+    return;
+  }
+
+  ctx.fillStyle = "#273052";
+  ctx.fillRect(x + 2, y + 2, 16, 16);
+  ctx.fillStyle = colors.mana;
+  ctx.fillRect(x + 5, y + 5, 10, 10);
+  ctx.fillStyle = "#e9ffff";
+  ctx.fillRect(x + 8, y + 4, 4, 4);
+}
+
 function drawEnemy(obj) {
   const x = obj.x;
   const y = obj.y;
+  const blinking = obj.invulnerableTimer > 0 && Math.floor(performance.now() / 70) % 2 === 0;
+
+  ctx.save();
+  if (blinking) ctx.globalAlpha = 0.45;
 
   if (obj.kind === "morcego") {
     ctx.fillStyle = "#273052";
@@ -1917,6 +2703,42 @@ function drawEnemy(obj) {
     ctx.fillStyle = "#fff264";
     ctx.fillRect(x + 10, y + 7, 2, 2);
     ctx.fillRect(x + 14, y + 7, 2, 2);
+  } else if (obj.kind === "slimeVermelho") {
+    ctx.fillStyle = "rgba(39, 48, 82, 0.25)";
+    ctx.fillRect(x + 2, y + 18, 22, 5);
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 1, y + 5, 22, 16);
+    ctx.fillStyle = "#ff4f62";
+    ctx.fillRect(x + 3, y + 7, 18, 12);
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x + 6, y + 11, 2, 2);
+    ctx.fillRect(x + 16, y + 11, 2, 2);
+  } else if (obj.kind === "golem") {
+    ctx.fillStyle = "rgba(39, 48, 82, 0.25)";
+    ctx.fillRect(x + 1, y + 26, 30, 6);
+    pixelRect(x + 4, y + 12, 22, 18, "#8a8da2");
+    pixelRect(x + 7, y + 2, 16, 13, "#76708e");
+    ctx.fillStyle = "#55e8ff";
+    ctx.fillRect(x + 9, y + 8, 3, 3);
+    ctx.fillRect(x + 18, y + 8, 3, 3);
+  } else if (obj.kind === "mago") {
+    pixelRect(x + 4, y + 9, 16, 20, "#4b386f");
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 2, y + 4, 20, 8);
+    ctx.fillStyle = "#b46dff";
+    ctx.fillRect(x + 8, y + 1, 8, 8);
+    ctx.fillStyle = "#55e8ff";
+    ctx.fillRect(x + 10, y + 15, 4, 4);
+  } else if (obj.kind === "guardiao") {
+    ctx.fillStyle = "rgba(39, 48, 82, 0.3)";
+    ctx.fillRect(x + 2, y + 37, 38, 7);
+    pixelRect(x + 4, y + 16, 30, 24, "#7c6b8f", "#1a1f3d");
+    pixelRect(x + 9, y + 1, 20, 19, "#8a8da2", "#1a1f3d");
+    ctx.fillStyle = "#ff4f62";
+    ctx.fillRect(x + 13, y + 9, 4, 4);
+    ctx.fillRect(x + 23, y + 9, 4, 4);
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x + 17, y + 27, 7, 7);
   } else {
     ctx.fillStyle = "rgba(39, 48, 82, 0.25)";
     ctx.fillRect(x + 2, y + 17, 20, 5);
@@ -1933,16 +2755,27 @@ function drawEnemy(obj) {
   ctx.fillRect(x, y - 6, obj.width, 4);
   ctx.fillStyle = "#d24c63";
   ctx.fillRect(x, y - 6, Math.max(0, obj.width * (obj.hp / obj.maxHp)), 4);
+  ctx.restore();
 }
 
 function drawAttack() {
   if (attackTimer <= 0) return;
-  const area = getAttackRect();
-  ctx.fillStyle = "rgba(255, 242, 100, 0.45)";
+  const area = getAttackRect(attackDirection);
+  const preparing = attackWindupTimer > 0;
+  ctx.fillStyle = preparing ? "rgba(255, 242, 100, 0.18)" : "rgba(255, 242, 100, 0.45)";
   ctx.fillRect(area.x, area.y, area.width, area.height);
-  ctx.strokeStyle = "#fff264";
-  ctx.lineWidth = 2;
+  ctx.strokeStyle = preparing ? "#55e8ff" : "#fff264";
+  ctx.lineWidth = preparing ? 1 : 3;
   ctx.strokeRect(area.x, area.y, area.width, area.height);
+
+  if (!preparing) {
+    ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
+    if (attackDirection === "left" || attackDirection === "right") {
+      ctx.fillRect(area.x, area.y + area.height / 2 - 2, area.width, 4);
+    } else {
+      ctx.fillRect(area.x + area.width / 2 - 2, area.y, 4, area.height);
+    }
+  }
 }
 
 function drawNpc(obj) {
@@ -1969,6 +2802,10 @@ function drawPlayer() {
   const x = player.x;
   const y = player.y;
   const legOffset = player.moving ? [0, 2, 0, -2][player.frame] : 0;
+  const blinking = playerInvulnerableTimer > 0 && Math.floor(performance.now() / 80) % 2 === 0;
+
+  ctx.save();
+  if (blinking) ctx.globalAlpha = 0.45;
 
   ctx.fillStyle = "rgba(39, 48, 82, 0.25)";
   ctx.fillRect(x + 3, y + 25, 22, 5);
@@ -1997,6 +2834,8 @@ function drawPlayer() {
   } else {
     ctx.fillRect(x + 19, y + 9, 2, 2);
   }
+
+  ctx.restore();
 }
 
 function findInteraction() {
@@ -2008,6 +2847,7 @@ function findInteraction() {
   };
 
   return interactables.find((obj) => {
+    if (obj.type === "rareChest" && (!questBook.bossDefeated || questBook.bossChestOpened)) return false;
     const range = {
       x: obj.x - 26,
       y: obj.y - 26,
@@ -2111,7 +2951,32 @@ function openDimensionChest(chestObj) {
   return "Bau especial aberto! Voce recebeu 25 moedas, 1 pocao, 1 espada rara e ganhou mais 1 coracao maximo.";
 }
 
+function openRareChest() {
+  if (!questBook.bossDefeated) {
+    return "Bau raro: derrote o Guardiao das Ruinas para quebrar o selo.";
+  }
+
+  if (questBook.bossChestOpened) {
+    return "Bau raro: ele ja foi aberto. So resta um brilho dourado.";
+  }
+
+  questBook.bossChestOpened = true;
+  inventory.moedas += 50;
+  inventory.pocoes += 2;
+  inventory.espadas += 1;
+  player.maxMana += 1;
+  player.mana = player.maxMana;
+  playSound("chest");
+  updateHud();
+  renderInventory();
+  return "Bau raro aberto! Voce recebeu 50 moedas, 2 pocoes, uma espada rara e +1 mana maxima.";
+}
+
 function getQuestMessage(npcObj) {
+  if (npcObj.type === "rareChest") {
+    return openRareChest();
+  }
+
   if (npcObj.type === "portal") {
     enterCrystalDimension();
     return "";
@@ -2211,6 +3076,36 @@ function collectWorldItems() {
   }
 }
 
+function collectPowerUps() {
+  if (currentScene !== "village") return;
+
+  const playerRect = getPlayerRect();
+  for (const obj of powerUps) {
+    if (obj.collected || !rectsOverlap(playerRect, obj)) continue;
+
+    obj.collected = true;
+    applyPowerUp(obj.kind);
+    spawnFloatingText(getPowerUpName(obj.kind), obj.x - 8, obj.y - 14, "#fff264");
+    playSound("powerup");
+  }
+}
+
+function applyPowerUp(kind) {
+  if (kind === "speed") activePowerUps.speed = 10;
+  if (kind === "force") activePowerUps.force = 10;
+  if (kind === "shield") activePowerUps.shield = 10;
+  if (kind === "regen") activePowerUps.regen = 8;
+  if (kind === "mana") player.mana = player.maxMana;
+}
+
+function getPowerUpName(kind) {
+  if (kind === "speed") return "Velocidade";
+  if (kind === "force") return "Forca";
+  if (kind === "shield") return "Escudo";
+  if (kind === "regen") return "Regeneracao";
+  return "Mana cheia";
+}
+
 function updateQuestProgress() {
   syncDimensionQuestState();
   const crystalText = quest.status === "notStarted" ? "Cristais: fale com Nico" :
@@ -2230,7 +3125,46 @@ function updateQuestProgress() {
 
 function updateHud() {
   healthHud.textContent = "♥ ".repeat(player.health).trim() || "0";
+  manaHud.textContent = `${Math.floor(player.mana)}/${player.maxMana}`;
+  manaFill.style.width = `${clamp((player.mana / player.maxMana) * 100, 0, 100)}%`;
   coinHud.textContent = inventory.moedas;
+  powerHud.textContent = getPowerHudText();
+}
+
+function getPowerHudText() {
+  const effects = [];
+  if (activePowerUps.speed > 0) effects.push(`Velocidade: ${Math.ceil(activePowerUps.speed)}s`);
+  if (activePowerUps.force > 0) effects.push(`Forca: ${Math.ceil(activePowerUps.force)}s`);
+  if (activePowerUps.shield > 0) effects.push(`Escudo: ${Math.ceil(activePowerUps.shield)}s`);
+  if (activePowerUps.regen > 0) effects.push(`Regeneracao: ${Math.ceil(activePowerUps.regen)}s`);
+
+  const cooldowns = [
+    `Q ${formatCooldown(player.spellCooldowns.fireball)}`,
+    `R ${formatCooldown(player.spellCooldowns.dash)}`,
+    `F ${formatCooldown(player.spellCooldowns.shockwave)}`,
+    `C ${formatCooldown(player.spellCooldowns.heal)}`
+  ].join(" | ");
+  const warning = getStrongEnemyWarning();
+
+  return [warning, effects.join(" | "), cooldowns].filter(Boolean).join(" || ");
+}
+
+function formatCooldown(value) {
+  return value <= 0 ? "ok" : `${value.toFixed(1)}s`;
+}
+
+function getStrongEnemyWarning() {
+  if (currentScene !== "village") return "";
+
+  const playerCenterX = player.x + player.width / 2;
+  const playerCenterY = player.y + player.height / 2;
+  const strong = villageObjects.find((obj) => {
+    if (obj.type !== "enemy" || !obj.alive) return false;
+    if (!["slimeVermelho", "golem", "mago", "guardiao"].includes(obj.kind)) return false;
+    return Math.hypot(obj.x - playerCenterX, obj.y - playerCenterY) < 190;
+  });
+
+  return strong ? "Inimigo forte perto!" : "";
 }
 
 function drawMiniMap() {
@@ -2332,15 +3266,23 @@ function saveGame() {
       y: player.y,
       health: player.health,
       maxHealth: player.maxHealth,
+      mana: player.mana,
+      maxMana: player.maxMana,
+      spellCooldowns: { ...player.spellCooldowns },
       direction: player.direction
     },
     inventory: { ...inventory },
     quest: { ...quest },
     questBook: { ...questBook },
+    unlockedPowers: { fireball: true, dash: true, shockwave: true, heal: true },
+    activePowerUps: { ...activePowerUps },
     dimensionQuest: { ...dimensionQuest },
     dimensionCrystals: crystalDimensionObjects
       .filter((obj) => obj.type === "dimensionCrystal" && obj.activated)
       .map((obj) => obj.crystalIndex),
+    powerUpsCollected: powerUps
+      .filter((obj) => obj.collected)
+      .map(getSaveObjectKey),
     collected: villageObjects
       .filter((obj) => (obj.type === "collectible" || obj.type === "crystal") && obj.collected)
       .map(getSaveObjectKey),
@@ -2364,8 +3306,10 @@ function loadGame() {
     Object.assign(quest, save.quest || {});
     Object.assign(questBook, save.questBook || {});
     Object.assign(dimensionQuest, save.dimensionQuest || {});
+    Object.assign(activePowerUps, save.activePowerUps || {});
 
     const collected = new Set(save.collected || []);
+    const powerUpsCollected = new Set(save.powerUpsCollected || []);
     const enemies = new Map((save.enemies || []).map((entry) => [entry.key, entry]));
     for (const obj of villageObjects) {
       if (obj.type === "collectible" || obj.type === "crystal") {
@@ -2376,6 +3320,10 @@ function loadGame() {
         obj.alive = savedEnemy ? savedEnemy.alive : true;
         obj.hp = savedEnemy ? savedEnemy.hp : obj.maxHp;
       }
+    }
+
+    for (const obj of powerUps) {
+      obj.collected = powerUpsCollected.has(getSaveObjectKey(obj));
     }
 
     const dimensionCrystals = new Set(save.dimensionCrystals || []);
@@ -2398,6 +3346,9 @@ function loadGame() {
     player.y = save.player?.y ?? player.startY;
     player.maxHealth = save.player?.maxHealth ?? 5;
     player.health = save.player?.health ?? player.maxHealth;
+    player.maxMana = save.player?.maxMana ?? 6;
+    player.mana = save.player?.mana ?? player.maxMana;
+    Object.assign(player.spellCooldowns, save.player?.spellCooldowns || {});
     player.direction = save.player?.direction || "down";
     gameOver = player.health <= 0;
     gameOverScreen.classList.toggle("hidden", !gameOver);
@@ -2412,6 +3363,10 @@ function loadGame() {
 }
 
 function getSaveObjectKey(obj) {
+  if (obj.type === "enemy") {
+    return `${obj.type}:${obj.kind}:${Math.round(obj.spawnX ?? obj.x)}:${Math.round(obj.spawnY ?? obj.y)}`;
+  }
+
   return `${obj.type}:${obj.item || obj.kind || "item"}:${Math.round(obj.x)}:${Math.round(obj.y)}`;
 }
 
@@ -2446,11 +3401,15 @@ function showErrorMessage(error) {
 }
 
 function ensureAudio() {
-  if (!audioContext) {
-    audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  }
-  if (audioContext.state === "suspended") {
-    audioContext.resume();
+  try {
+    if (!audioContext) {
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    if (audioContext.state === "suspended") {
+      audioContext.resume();
+    }
+  } catch (error) {
+    audioContext = null;
   }
 }
 
@@ -2470,6 +3429,7 @@ function playTone(frequency, duration, type = "square", volume = 0.08) {
 
 function playSound(name) {
   ensureAudio();
+  if (!audioContext) return;
   if (name === "coin") {
     playTone(880, 0.08, "square", 0.09);
     setTimeout(() => playTone(1320, 0.08, "square", 0.07), 70);
@@ -2495,6 +3455,39 @@ function playSound(name) {
     playTone(330, 0.08, "triangle", 0.06);
     setTimeout(() => playTone(660, 0.08, "triangle", 0.06), 90);
     setTimeout(() => playTone(990, 0.12, "triangle", 0.06), 180);
+  } else if (name === "attack") {
+    playTone(260, 0.05, "sawtooth", 0.05);
+    setTimeout(() => playTone(180, 0.05, "sawtooth", 0.04), 55);
+  } else if (name === "hitEnemy") {
+    playTone(170, 0.08, "square", 0.06);
+    setTimeout(() => playTone(110, 0.06, "square", 0.05), 55);
+  } else if (name === "playerHit") {
+    playTone(120, 0.12, "sawtooth", 0.08);
+  } else if (name === "powerup") {
+    playTone(680, 0.08, "triangle", 0.08);
+    setTimeout(() => playTone(1020, 0.11, "triangle", 0.07), 70);
+  } else if (name === "magic") {
+    playTone(420, 0.08, "sine", 0.07);
+    setTimeout(() => playTone(840, 0.08, "triangle", 0.06), 70);
+  } else if (name === "dash") {
+    playTone(520, 0.06, "sawtooth", 0.06);
+    setTimeout(() => playTone(260, 0.05, "sawtooth", 0.05), 45);
+  } else if (name === "shockwave") {
+    playTone(96, 0.14, "sine", 0.09);
+    setTimeout(() => playTone(192, 0.12, "sine", 0.07), 90);
+  } else if (name === "heal") {
+    playTone(540, 0.08, "triangle", 0.06);
+    setTimeout(() => playTone(720, 0.08, "triangle", 0.06), 80);
+  } else if (name === "enemyMagic") {
+    playTone(300, 0.08, "triangle", 0.05);
+    setTimeout(() => playTone(240, 0.08, "triangle", 0.04), 70);
+  } else if (name === "enemyDown") {
+    playTone(330, 0.08, "square", 0.07);
+    setTimeout(() => playTone(520, 0.1, "square", 0.06), 80);
+  } else if (name === "bossDown") {
+    playTone(180, 0.12, "sawtooth", 0.09);
+    setTimeout(() => playTone(360, 0.12, "triangle", 0.08), 110);
+    setTimeout(() => playTone(720, 0.18, "triangle", 0.07), 230);
   }
 }
 
@@ -2574,10 +3567,27 @@ function usePotion() {
   updateHud();
 }
 
-function takeDamage(amount) {
-  if (gameOver) return;
-  playSound("hit");
-  player.health = Math.max(0, player.health - amount);
+function takeDamage(amount, sourceX = player.x, sourceY = player.y) {
+  if (gameOver || playerInvulnerableTimer > 0) return;
+
+  const finalDamage = activePowerUps.shield > 0 ? Math.max(0, amount - 1) : amount;
+  playerInvulnerableTimer = 0.9;
+  playSound("playerHit");
+
+  if (finalDamage > 0) {
+    player.health = Math.max(0, player.health - finalDamage);
+    spawnFloatingText(`-${finalDamage}`, player.x + 12, player.y - 12, "#ff4f62");
+  } else {
+    spawnFloatingText("Bloqueou!", player.x + 12, player.y - 12, "#fff264");
+  }
+
+  const centerX = player.x + player.width / 2;
+  const centerY = player.y + player.height / 2;
+  const dx = centerX - sourceX;
+  const dy = centerY - sourceY;
+  const length = Math.hypot(dx, dy) || 1;
+  playerKnockbackX = (dx / length) * 160;
+  playerKnockbackY = (dy / length) * 160;
   updateHud();
   if (player.health <= 0) {
     gameOver = true;
@@ -2587,39 +3597,61 @@ function takeDamage(amount) {
 
 function triggerAttack() {
   if (gameOver || dialogOpen || inventoryOpen || shopOpen || currentScene !== "village") return;
-  attackTimer = 0.18;
-  const area = getAttackRect();
+  if (attackWindupTimer > 0 || attackRecoveryTimer > 0 || attackTimer > 0) return;
 
-  for (const obj of villageObjects) {
-    if (obj.type !== "enemy" || !obj.alive || !rectsOverlap(area, obj)) continue;
-    const damage = inventory.espadas > 0 ? 2 : 1;
-    obj.hp -= damage;
-    if (obj.hp <= 0) {
-      obj.alive = false;
-      inventory.moedas += obj.kind === "morcego" ? 5 : 3;
-      if (obj.kind === "slime") {
-        questBook.forestMonstersDefeated = Math.min(
-          questBook.forestMonstersGoal,
-          questBook.forestMonstersDefeated + 1
-        );
-      }
-    }
-  }
+  attackDirection = player.direction;
+  attackWindupTimer = 0.11;
+  attackRecoveryTimer = 0.26;
+  attackTimer = 0.34;
+  attackHitDone = false;
+  playSound("attack");
 }
 
 function updateAttack(delta) {
+  if (attackWindupTimer > 0) {
+    attackWindupTimer = Math.max(0, attackWindupTimer - delta);
+    if (attackWindupTimer <= 0 && !attackHitDone) {
+      resolveBasicAttack();
+      attackHitDone = true;
+    }
+  }
+
+  if (attackWindupTimer <= 0 && attackRecoveryTimer > 0) {
+    attackRecoveryTimer = Math.max(0, attackRecoveryTimer - delta);
+  }
+
   attackTimer = Math.max(0, attackTimer - delta);
 }
 
-function getAttackRect() {
+function resolveBasicAttack() {
+  const area = getAttackRect(attackDirection);
+  let hit = false;
+
+  for (const obj of villageObjects) {
+    if (obj.type !== "enemy" || !obj.alive || !rectsOverlap(area, obj)) continue;
+    const damage = getBasicAttackDamage();
+    if (damageEnemy(obj, damage, player.x + player.width / 2, player.y + player.height / 2, 190)) {
+      hit = true;
+    }
+  }
+
+  if (hit) playSound("hitEnemy");
+}
+
+function getBasicAttackDamage() {
+  return (inventory.espadas > 0 ? 2 : 1) + (activePowerUps.force > 0 ? 1 : 0);
+}
+
+function getAttackRect(direction = player.direction) {
   const centerX = player.x + player.width / 2;
   const centerY = player.y + player.height / 2;
-  const size = 34;
+  const forward = direction === "up" || direction === "down" ? 42 : 46;
+  const side = direction === "up" || direction === "down" ? 32 : 30;
 
-  if (player.direction === "left") return { x: centerX - size, y: centerY - 14, width: size, height: 28 };
-  if (player.direction === "right") return { x: centerX, y: centerY - 14, width: size, height: 28 };
-  if (player.direction === "up") return { x: centerX - 14, y: centerY - size, width: 28, height: size };
-  return { x: centerX - 14, y: centerY, width: 28, height: size };
+  if (direction === "left") return { x: centerX - forward, y: centerY - side / 2, width: forward, height: side };
+  if (direction === "right") return { x: centerX, y: centerY - side / 2, width: forward, height: side };
+  if (direction === "up") return { x: centerX - side / 2, y: centerY - forward, width: side, height: forward };
+  return { x: centerX - side / 2, y: centerY, width: side, height: forward };
 }
 
 function updateInteractionHint() {
@@ -2632,6 +3664,7 @@ function updateInteractionHint() {
   else if (target.type === "dimensionPortal") interactionHint.textContent = "Pressione E para voltar";
   else if (target.type === "dimensionCrystal") interactionHint.textContent = "Pressione E para ativar cristal";
   else if (target.type === "dimensionChest") interactionHint.textContent = "Pressione E para abrir o bau";
+  else if (target.type === "rareChest") interactionHint.textContent = "Pressione E para abrir o bau raro";
   else if (target.type === "npc") interactionHint.textContent = "Pressione E para conversar";
   else interactionHint.textContent = "Pressione E para interagir";
 }
@@ -2677,6 +3710,13 @@ function resetPlayer() {
   gameOver = false;
   gameOverScreen.classList.add("hidden");
   player.health = player.maxHealth;
+  player.mana = player.maxMana;
+  playerInvulnerableTimer = 0;
+  playerKnockbackX = 0;
+  playerKnockbackY = 0;
+  projectiles.length = 0;
+  enemyProjectiles.length = 0;
+  floatingTexts.length = 0;
   player.x = player.startX;
   player.y = player.startY;
   player.direction = "down";
@@ -2707,7 +3747,7 @@ window.addEventListener("unhandledrejection", (event) => {
 window.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
 
-  if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d", "e", "i", "u", " "].includes(key)) {
+  if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d", "e", "i", "u", "q", "r", "f", "c", " "].includes(key)) {
     event.preventDefault();
   }
 
@@ -2723,6 +3763,26 @@ window.addEventListener("keydown", (event) => {
 
   if (key === " ") {
     triggerAttack();
+    return;
+  }
+
+  if (key === "q") {
+    castFireball();
+    return;
+  }
+
+  if (key === "r") {
+    dash();
+    return;
+  }
+
+  if (key === "f") {
+    shockwave();
+    return;
+  }
+
+  if (key === "c") {
+    quickHeal();
     return;
   }
 
@@ -2764,6 +3824,7 @@ function setupTouchControls() {
   }
 
   const bindTouchAction = (button, action) => {
+    if (!button) return;
     button.addEventListener("pointerdown", (event) => {
       event.preventDefault();
       button.classList.add("is-pressed");
@@ -2781,6 +3842,10 @@ function setupTouchControls() {
   bindTouchAction(touchActionButton, toggleInteraction);
   bindTouchAction(touchAttackButton, triggerAttack);
   bindTouchAction(touchInventoryButton, toggleInventory);
+  bindTouchAction(touchFireballButton, castFireball);
+  bindTouchAction(touchDashButton, dash);
+  bindTouchAction(touchShockwaveButton, shockwave);
+  bindTouchAction(touchHealButton, quickHeal);
 
   document.addEventListener("touchmove", (event) => {
     if (event.target.closest(".touch-controls")) {
@@ -2804,7 +3869,7 @@ continueButton.addEventListener("click", () => startGame(true));
 howToButton.addEventListener("click", () => {
   showInfo(
     "Como Jogar",
-    "W A S D ou setas: mover\nE: conversar/interagir\nEspaco: atacar\nI: inventario\nU: usar pocao\nEntre nas portas para visitar interiores.\nUse Salvar Jogo para guardar seu progresso."
+    "W A S D ou setas: mover\nE: conversar/interagir\nEspaco: ataque basico\nQ: Bola de Fogo\nR: Dash\nF: Onda de Choque\nC: Cura Rapida\nI: inventario\nU: usar pocao\nNo celular, use os botoes Q/R/F/C do painel touch.\nUse Salvar Jogo para guardar seu progresso."
   );
 });
 creditsButton.addEventListener("click", () => {

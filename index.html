@@ -42,9 +42,18 @@
           <span class="hud-label">Vida</span>
           <strong id="healthHud">♥ ♥ ♥ ♥ ♥</strong>
         </div>
+        <div class="hud-mana-box">
+          <span class="hud-label">Mana</span>
+          <strong id="manaHud">0/0</strong>
+          <span class="mana-bar"><span id="manaFill"></span></span>
+        </div>
         <div>
           <span class="hud-label">Moedas</span>
           <strong id="coinHud">0</strong>
+        </div>
+        <div class="hud-wide">
+          <span class="hud-label">Poderes</span>
+          <strong id="powerHud">Q/R/F/C prontos</strong>
         </div>
         <button id="saveButton" type="button">Salvar Jogo</button>
         <button id="resetButton" type="button">Reiniciar posicao</button>
@@ -62,6 +71,10 @@
 
         <div class="touch-actions">
           <button id="touchInventoryButton" class="touch-button touch-small" type="button" aria-label="Abrir inventario">Inv</button>
+          <button id="touchFireballButton" class="touch-button touch-spell" type="button" aria-label="Bola de Fogo">Q</button>
+          <button id="touchDashButton" class="touch-button touch-spell" type="button" aria-label="Dash">R</button>
+          <button id="touchShockwaveButton" class="touch-button touch-spell" type="button" aria-label="Onda de Choque">F</button>
+          <button id="touchHealButton" class="touch-button touch-spell" type="button" aria-label="Cura Rapida">C</button>
           <button id="touchActionButton" class="touch-button" type="button" aria-label="Acao">Ação</button>
           <button id="touchAttackButton" class="touch-button" type="button" aria-label="Ataque">Ataque</button>
         </div>
@@ -110,6 +123,7 @@
         <li><strong>W A S D</strong> ou <strong>setas</strong>: mover</li>
         <li><strong>E</strong>: interagir</li>
         <li><strong>Espaco</strong>: atacar</li>
+        <li><strong>Q/R/F/C</strong>: poderes especiais</li>
         <li><strong>I</strong>: inventario</li>
         <li><strong>U</strong>: usar pocao</li>
         <li><strong>Botao</strong>: voltar ao inicio</li>

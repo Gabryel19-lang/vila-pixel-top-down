@@ -109,8 +109,8 @@ canvas {
   left: 10px;
   top: 10px;
   right: 10px;
-  display: grid;
-  grid-template-columns: max-content max-content minmax(260px, 1fr) max-content max-content;
+  display: flex;
+  flex-wrap: wrap;
   align-items: start;
   gap: 8px;
   pointer-events: none;
@@ -138,6 +138,11 @@ canvas {
   display: grid;
   gap: 1px;
   min-width: 104px;
+}
+
+.hud .hud-wide {
+  flex: 1 1 260px;
+  min-width: 210px;
 }
 
 .hud > div::before,
@@ -185,6 +190,30 @@ canvas {
   color: #fff264;
 }
 
+.mana-bar {
+  display: block;
+  width: 92px;
+  height: 7px;
+  margin-top: 3px;
+  border: 1px solid var(--ui-border);
+  background: rgba(11, 16, 38, 0.7);
+}
+
+#manaFill {
+  display: block;
+  width: 0%;
+  height: 100%;
+  background: linear-gradient(90deg, #3f8fe5, #55e8ff);
+}
+
+#powerHud {
+  display: block;
+  max-width: 100%;
+  font-size: 0.82rem;
+  line-height: 1.2;
+  white-space: normal;
+}
+
 .hud-label {
   color: #b8d9ff;
   font-size: 0.66rem;
@@ -201,11 +230,11 @@ canvas {
 }
 
 #saveButton {
-  grid-column: 4;
+  grid-column: auto;
 }
 
 #resetButton {
-  grid-column: 5;
+  grid-column: auto;
 }
 
 .hud button:hover {
@@ -468,6 +497,7 @@ canvas {
   }
 
   .hud {
+    display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     align-items: start;
     left: max(8px, env(safe-area-inset-left));
@@ -505,6 +535,19 @@ canvas {
     order: 3;
   }
 
+  .hud > div:nth-child(6) {
+    order: 4;
+  }
+
+  .hud > div:nth-child(7) {
+    grid-column: 1 / -1;
+    order: 5;
+  }
+
+  .hud .hud-wide {
+    min-width: 0;
+  }
+
   .hud-label {
     font-size: 0.58rem;
   }
@@ -514,13 +557,23 @@ canvas {
     line-height: 1.2;
   }
 
+  .mana-bar {
+    width: 100%;
+    height: 6px;
+  }
+
+  #powerHud {
+    font-size: 0.68rem;
+    line-height: 1.15;
+  }
+
   .hud button {
     margin-left: 0;
   }
 
   #saveButton {
     grid-column: 1 / 2;
-    order: 5;
+    order: 6;
   }
 
   #resetButton {
@@ -634,21 +687,24 @@ canvas {
     right: max(14px, env(safe-area-inset-right));
     bottom: max(18px, env(safe-area-inset-bottom));
     display: grid;
-    grid-template-columns: 74px 74px;
-    gap: 10px;
+    grid-template-columns: repeat(3, 58px);
+    gap: 8px;
     pointer-events: auto;
   }
 
   .touch-actions .touch-button {
-    min-height: 54px;
+    min-height: 48px;
     border-radius: 8px;
     padding: 6px;
+    font-size: 0.76rem;
   }
 
   .touch-actions .touch-small {
-    grid-column: 1 / -1;
-    justify-self: end;
-    width: 74px;
+    min-height: 38px;
+  }
+
+  .touch-actions .touch-spell {
     min-height: 42px;
+    background: rgba(85, 232, 255, 0.92);
   }
 }

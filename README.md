@@ -40,6 +40,10 @@ Arquivos de deploy incluidos: `.nojekyll` para GitHub Pages e `netlify.toml` par
 - `E`: interagir com placas e NPCs
 - `E` perto do portal: entrar ou sair da Dimensao Cristalina
 - `Espaco`: atacar na direcao em que o personagem esta olhando
+- `Q`: lancar Bola de Fogo
+- `R`: usar Dash
+- `F`: usar Onda de Choque
+- `C`: usar Cura Rapida
 - `I`: abrir ou fechar inventario
 - `U`: usar pocao para recuperar vida
 - Botao **Salvar Jogo**: salva progresso no navegador usando `localStorage`
@@ -51,6 +55,7 @@ No celular:
 - Botao **Acao**: interagir, igual a tecla `E`
 - Botao **Ataque**: atacar, igual a tecla `Espaco`
 - Botao **Inv**: abrir inventario, igual a tecla `I`
+- Botoes **Q/R/F/C**: usar Bola de Fogo, Dash, Onda de Choque e Cura Rapida
 
 ## Portal e Dimensao Cristalina
 
@@ -68,12 +73,46 @@ Dentro da **Dimensao Cristalina**:
 
 O progresso da dimensao tambem e salvo no navegador com `localStorage`: entrada na dimensao, cristais ativados, ponte aberta, bau aberto e missao concluida.
 
+## Mapa Expandido e Combate
+
+O mapa principal foi aumentado e ganhou novas regioes conectadas por caminhos:
+
+- Floresta profunda e cemiterio abandonado: ficam no sudoeste do mapa.
+- Ruinas antigas: ficam no nordeste.
+- Lago maior: fica a leste da vila.
+- Campo aberto: fica no leste/sudeste.
+- Arena de treino e area de monstros fortes: ficam no sudeste.
+- Caminho secreto: fica ao sul, seguindo as pedras e placas.
+
+Perto da praca principal existe a placa **MAPA EXPANDIDO** e um caminho novo saindo para o sul.
+
+Power-ups espalhados pelo mapa:
+
+- Bota azul: velocidade por 10 segundos, perto da praca e no campo aberto.
+- Espada vermelha: forca por 10 segundos, nas ruinas e na area perigosa.
+- Escudo dourado: escudo por 10 segundos, na arena e no cemiterio.
+- Coracao verde: regeneracao por 8 segundos, no cemiterio e perto do campo.
+- Orbe roxo: recupera mana, no caminho secreto e perto do lago maior.
+
+O combate agora tem mana, cooldowns e inimigos mais inteligentes. Slimes vermelhos, golems, magos sombrios e o Guardiao das Ruinas perseguem o jogador, tomam knockback, piscam ao receber dano e podem dropar pocao ou power-up.
+
+Para testar o combate novo:
+
+1. Saia da praca pelo caminho novo ao sul.
+2. Colete um power-up.
+3. Use `Espaco` para ataque basico.
+4. Use `Q`, `R`, `F` e `C` para testar os poderes.
+5. Va ate as ruinas ou area perigosa para enfrentar inimigos fortes.
+6. Derrote o Guardiao das Ruinas na arena e abra o bau raro.
+7. Salve o jogo, volte para a tela inicial e use **Continuar**.
+
 ## O que foi implementado
 
 - Personagem no centro da tela com camera seguindo
 - Movimento em oito direcoes com teclado
 - Mapa de vila com grama, caminhos, casas, arvores, cercas, placas e agua
 - Mapa grande com areas diferentes: vila principal, loja, casa do jogador, parque, portal, floresta, praca, lago e area secreta
+- Mapa principal expandido com floresta profunda, ruinas, campo aberto, cemiterio, lago maior, arena, area perigosa e caminho secreto
 - Flores e pedras decorativas espalhadas pelo cenario
 - Colisao com casas, arvores, cercas, placas, NPCs e agua
 - Animacao simples de caminhada
@@ -85,6 +124,13 @@ O progresso da dimensao tambem e salvo no navegador com `localStorage`: entrada 
 - Sistema de vida com 5 coracoes, pocoes e tela de Game Over
 - Inimigos simples: slimes na floresta e morcego perto da caverna
 - Ataque com `Espaco`, dano em inimigos e recompensa em moedas
+- Mana, barra de mana e poderes especiais com cooldown
+- Power-ups temporarios de velocidade, forca, escudo e regeneracao
+- Orbe de mana para recarregar poderes
+- Combate melhorado com preparacao, recuperacao, knockback, invulnerabilidade, hitstop e textos de dano
+- Novos inimigos: slime vermelho, golem de pedra, mago sombrio e boss Guardiao das Ruinas
+- Drops de inimigos com moedas, pocoes e power-ups
+- Bau raro liberado ao derrotar o boss
 - Tela inicial com Jogar, Continuar, Como Jogar e Creditos
 - Sistema de salvar/continuar com `localStorage`
 - Mini mapa com jogador, casas, lago e NPCs importantes
