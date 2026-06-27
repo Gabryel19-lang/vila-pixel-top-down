@@ -12,6 +12,16 @@ O visual usa uma arte original inspirada em RPGs pixel art coloridos, com contor
 
 Tambem funciona abrindo `index.html` direto no navegador, mas o Live Server deixa o fluxo de desenvolvimento mais confortavel.
 
+## Testar no celular
+
+1. Abra o projeto no VS Code com Live Server.
+2. No PC, descubra seu IP local, por exemplo `192.168.0.10`.
+3. No celular, use o mesmo Wi-Fi do PC.
+4. Abra no navegador do celular: `http://IP-DO-PC:5500/index.html`.
+5. Jogue de preferencia com o celular na horizontal.
+
+Se a tela estiver pequena ou em pe, o jogo mostra o aviso **Vire o celular para jogar melhor**.
+
 ## Publicar
 
 ### GitHub Pages
@@ -39,23 +49,59 @@ Arquivos de deploy incluidos: `.nojekyll` para GitHub Pages e `netlify.toml` par
 - `W A S D` ou setas do teclado: mover personagem
 - `E`: interagir com placas e NPCs
 - `E` perto do portal: entrar ou sair da Dimensao Cristalina
-- `Espaco`: atacar na direcao em que o personagem esta olhando
-- `Q`: lancar Bola de Fogo
-- `R`: usar Dash
-- `F`: usar Onda de Choque
-- `C`: usar Cura Rapida
+- Mouse: mirar
+- Clique esquerdo: atacar com a arma atual
+- Clique direito ou `Q`: usar o poder equipado
+- `1`, `2`, `3`, `4`: equipar Bola de Fogo, Raio Azul, Onda de Choque ou Cura Magica
+- `Tab`: trocar arma entre espada, arco, cajado e lanca
+- `Espaco`: esquiva curta
+- `R`: dash magico antigo, caso queira usar
 - `I`: abrir ou fechar inventario
 - `U`: usar pocao para recuperar vida
-- Botao **Salvar Jogo**: salva progresso no navegador usando `localStorage`
-- Botao **Reiniciar posicao**: volta o personagem para o ponto inicial
+- `M`: abrir painel de missoes
+- `C`: abrir painel de status
+- `Esc`: abrir ou fechar menu
+- `F3`: abrir debug com X/Y, FPS, cena, canvas, `isMobile` e ultimo erro
+- Menu: salvar jogo, reiniciar posicao, ver missoes, status, inventario e ajuda
 
 No celular:
 
-- Direcional virtual no canto inferior esquerdo: mover
-- Botao **Acao**: interagir, igual a tecla `E`
-- Botao **Ataque**: atacar, igual a tecla `Espaco`
-- Botao **Inv**: abrir inventario, igual a tecla `I`
-- Botoes **Q/R/F/C**: usar Bola de Fogo, Dash, Onda de Choque e Cura Rapida
+- Joystick analogico no canto inferior esquerdo: mover em 8 direcoes.
+- Quanto mais longe do centro, maior a velocidade.
+- Botao **Ataque**: ataca com a arma atual e usa auto-mira.
+- Botao **Poder**: usa o poder equipado.
+- Botao **Dash**: esquiva na direcao do joystick.
+- Botao **E/Acao**: interagir com NPC, placa, bau, portal, cristal ou loja.
+- Botao **Pocao**: usa uma pocao.
+- Botao **Inv**: abre e fecha inventario.
+- Botao **Arma**: troca entre espada, arco, cajado e lanca.
+- Botoes **1/2/3/4**: escolhem Bola de Fogo, Raio Azul, Onda de Choque ou Cura Magica.
+- Botao **Menu**: abre salvar, reiniciar, missoes, status, inventario e como jogar.
+- Botao **Tela cheia**: tenta ativar fullscreen.
+- Botao **Pausa**: abre menu com Continuar, Salvar, Reiniciar, Como jogar e Sair para menu.
+
+No mobile, ataques e poderes de projetil miram automaticamente no inimigo mais proximo. Se tocar em um inimigo no canvas, a mira tenta travar naquele alvo.
+
+Para abrir o diagnostico mobile, acesse o jogo com `?debug=1` no final da URL. O painel mostra tela, canvas, FPS, cena, `isMobile`, ultimo erro, joystick e botao pressionado.
+
+## HUD novo
+
+O HUD foi reorganizado para ocupar menos tela:
+
+- Canto superior esquerdo: vida, mana e moedas.
+- Centro superior: missao atual em uma frase curta.
+- Canto superior direito: area atual, arma e poder equipado.
+- Oxigenio aparece apenas quando a Lia esta nadando.
+- X/Y saiu do HUD principal e aparece apenas no debug (`F3` ou `?debug=1`).
+- Barra de boss aparece separada, apenas quando um boss esta perto ou em combate.
+- Salvar e reiniciar foram movidos para o **Menu**.
+
+Informacoes grandes ficam em paineis:
+
+- `M` abre o painel completo de missoes.
+- `C` abre o painel de status com vida, mana, defesa, critico, arma, poder e buffs.
+- `Esc` abre o menu principal.
+- `F3` abre ou fecha o debug.
 
 ## Portal e Dimensao Cristalina
 
@@ -94,17 +140,67 @@ Power-ups espalhados pelo mapa:
 - Coracao verde: regeneracao por 8 segundos, no cemiterio e perto do campo.
 - Orbe roxo: recupera mana, no caminho secreto e perto do lago maior.
 
-O combate agora tem mana, cooldowns e inimigos mais inteligentes. Slimes vermelhos, golems, magos sombrios e o Guardiao das Ruinas perseguem o jogador, tomam knockback, piscam ao receber dano e podem dropar pocao ou power-up.
+O combate agora tem mira com mouse, quatro armas, mana, poderes equipaveis, cooldowns, projeteis do jogador e projeteis dos inimigos.
+
+Armas:
+
+- Espada curta: arco curto e rapido.
+- Arco: dispara flechas e consome flechas do inventario.
+- Cajado: dispara magia azul.
+- Lanca: ataque em linha mais longo.
+
+Poderes:
+
+- `1` Bola de Fogo.
+- `2` Raio Azul.
+- `3` Onda de Choque.
+- `4` Cura Magica.
+- `Q` ou clique direito usa o poder equipado.
+
+Inimigos novos:
+
+- Slime Verde, Slime Vermelho, Slime Azul.
+- Morcego, Aranha, Goblin, Arqueiro Goblin.
+- Mago Sombrio, Golem de Pedra, Fantasma.
+- Peixe Hostil e Mini Dragao.
+
+Bosses:
+
+- Rei Slime.
+- Aranha Rainha.
+- Golem Ancestral.
+- Bruxo Sombrio.
+- Serpente do Lago.
+
+Os inimigos perseguem, patrulham, mantem distancia quando sao arqueiros/magos, fogem com pouca vida em alguns casos, evitam agua quando nao sabem nadar e nao atravessam casas, arvores ou paredes. Bosses mostram barra de vida no HUD e mudam de fase com pouca vida.
+
+Loot:
+
+- Inimigos podem soltar moedas, pocoes, flechas, fragmentos, orbes de mana, chave rara e itens de boss.
+- O inventario mostra as quantidades coletadas.
+
+Natacao:
+
+- No Lago Maior, entre na agua para nadar.
+- A velocidade diminui na agua.
+- O HUD mostra oxigenio.
+- Se o oxigenio acabar, a Lia perde vida.
+- O power-up Respiracao Aquatica protege por alguns segundos.
+- Flechas ficam mais lentas na agua, fogo apaga e magia continua funcionando.
 
 Para testar o combate novo:
 
-1. Saia da praca pelo caminho novo ao sul.
-2. Colete um power-up.
-3. Use `Espaco` para ataque basico.
-4. Use `Q`, `R`, `F` e `C` para testar os poderes.
-5. Va ate as ruinas ou area perigosa para enfrentar inimigos fortes.
-6. Derrote o Guardiao das Ruinas na arena e abra o bau raro.
-7. Salve o jogo, volte para a tela inicial e use **Continuar**.
+1. Perto da praca, procure a placa **TESTE DE COMBATE**.
+2. Use o mouse para mirar.
+3. Clique esquerdo para atacar.
+4. Use `Tab` para trocar arma.
+5. Use `1-4` para escolher um poder e `Q` para usar.
+6. Use `Espaco` para esquivar.
+7. Va ate a arena de treino no sudeste para enfrentar o Mini Guardiao.
+8. Va ao Lago Maior no leste para testar natacao, oxigenio e inimigos aquaticos.
+9. Salve o jogo, volte para a tela inicial e use **Continuar**.
+
+No celular, a arena de teste mais rapida fica perto da placa **TESTE DE COMBATE**, ao sul/sudeste da praca principal. Ali da para testar joystick, auto-mira, ataque, poder, dash, troca de arma e selecao 1-4 sem andar muito.
 
 ## O que foi implementado
 
@@ -122,27 +218,47 @@ Para testar o combate novo:
 - Inventario com tecla `I`, itens coletaveis e quantidades
 - Loja com vendedor, compra de pocao usando moedas e moedas no HUD
 - Sistema de vida com 5 coracoes, pocoes e tela de Game Over
-- Inimigos simples: slimes na floresta e morcego perto da caverna
-- Ataque com `Espaco`, dano em inimigos e recompensa em moedas
+- Inimigos simples e avancados espalhados por floresta, lago, ruinas, arena e caverna
+- Ataque com clique esquerdo, dano em inimigos e recompensa em moedas
 - Mana, barra de mana e poderes especiais com cooldown
+- Mira com mouse, clique esquerdo para ataque e clique direito para poder equipado
+- Armas trocaveis: espada, arco, cajado e lanca
+- Poderes equipaveis: Bola de Fogo, Raio Azul, Onda de Choque e Cura Magica
 - Power-ups temporarios de velocidade, forca, escudo e regeneracao
+- Power-up de Respiracao Aquatica
 - Orbe de mana para recarregar poderes
 - Combate melhorado com preparacao, recuperacao, knockback, invulnerabilidade, hitstop e textos de dano
-- Novos inimigos: slime vermelho, golem de pedra, mago sombrio e boss Guardiao das Ruinas
-- Drops de inimigos com moedas, pocoes e power-ups
+- Sistema de critico, defesa e resistencia elemental
+- Novos inimigos: 3 slimes, morcego, aranha, goblin, arqueiro goblin, mago sombrio, golem, fantasma, peixe hostil e mini dragao
+- Cinco bosses: Rei Slime, Aranha Rainha, Golem Ancestral, Bruxo Sombrio e Serpente do Lago
+- Drops de inimigos com moedas, pocoes, flechas, fragmentos, orbes de mana, chave rara, itens de boss e power-ups
+- Natacao no lago, oxigenio, ripples e regras de combate na agua
 - Bau raro liberado ao derrotar o boss
 - Tela inicial com Jogar, Continuar, Como Jogar e Creditos
 - Sistema de salvar/continuar com `localStorage`
+- Salvamento de arma atual, poder equipado, oxigenio, loot no chao, bosses derrotados, itens raros e inimigos vivos
 - Mini mapa com jogador, casas, lago e NPCs importantes
 - Suporte para celular com Canvas responsivo e controles touch
+- Joystick analogico mobile com velocidade variavel
+- Auto-mira mobile com alvo marcado e troca de alvo por toque
+- Botoes mobile grandes para ataque, poder, dash, interacao, pocao, inventario e arma
+- Barra mobile de poderes 1/2/3/4 com destaque no poder equipado
+- Botao de tela cheia no mobile e na tela inicial
+- Menu de pausa mobile com salvar, reiniciar, ajuda e voltar ao menu
+- Feedback tatil com `navigator.vibrate` quando disponivel
+- Painel de debug opcional usando `?debug=1`
 - Efeitos sonoros e musica simples com Web Audio API, sem arquivos externos
 - Transicao entre mapas: casa do jogador, loja e casa do prefeito tem interiores proprios
 - Portal magico funcional que leva para a Dimensao Cristalina
 - Nova dimensao com chao roxo, agua magica, cristais, arvores estranhas, pedras flutuantes e particulas
 - Missao da dimensao com 3 cristais ativaveis, ponte secreta e bau especial
 - Sons de portal, cristal e bau usando Web Audio API
-- HUD com nome do personagem e posicao X/Y
+- HUD com nome do personagem, area atual e dados compactos
 - HUD com progresso da missao
+- HUD compacto com vida, mana, moedas, area, arma, poder e missao curta
+- Paineis separados de Missoes, Status, Menu e Debug
+- X/Y movido para o debug com `F3` ou `?debug=1`
+- Boss bar separada e limpa, aparecendo apenas perto de boss
 - Codigo separado em `index.html`, `styles.css` e `app.js`
 
 ## Estrutura

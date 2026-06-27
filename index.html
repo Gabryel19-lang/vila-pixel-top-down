@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Vila Pixel Top-Down</title>
   <link rel="stylesheet" href="styles.css">
 </head>
@@ -15,6 +15,7 @@
           <p>Uma aventura pixel art pela Vila Pixel.</p>
           <button id="playButton" type="button">Jogar</button>
           <button id="continueButton" type="button">Continuar</button>
+          <button id="startFullscreenButton" type="button">Tela cheia</button>
           <button id="howToButton" type="button">Como Jogar</button>
           <button id="creditsButton" type="button">Creditos</button>
           <p id="startMessage"></p>
@@ -31,8 +32,8 @@
           <strong id="playerName">Lia</strong>
         </div>
         <div>
-          <span class="hud-label">Posicao</span>
-          <strong id="playerPosition">X: 0 / Y: 0</strong>
+          <span class="hud-label">Area</span>
+          <strong id="playerPosition">Vila</strong>
         </div>
         <div>
           <span class="hud-label">Missao</span>
@@ -51,17 +52,44 @@
           <span class="hud-label">Moedas</span>
           <strong id="coinHud">0</strong>
         </div>
+        <div>
+          <span class="hud-label">Arma</span>
+          <strong id="weaponHud">Espada curta</strong>
+        </div>
+        <div class="hud-oxygen-box">
+          <span class="hud-label">Oxigenio</span>
+          <strong id="oxygenHud">Fora da agua</strong>
+          <span class="oxygen-bar"><span id="oxygenFill"></span></span>
+        </div>
         <div class="hud-wide">
-          <span class="hud-label">Poderes</span>
-          <strong id="powerHud">Q/R/F/C prontos</strong>
+          <span class="hud-label">Poder</span>
+          <strong id="powerHud">Q poder equipado</strong>
+        </div>
+        <div id="bossHud" class="hud-wide boss-hud hidden">
+          <span class="hud-label">Boss</span>
+          <strong id="bossNameHud">Nenhum</strong>
+          <span class="boss-bar"><span id="bossFill"></span></span>
         </div>
         <button id="saveButton" type="button">Salvar Jogo</button>
         <button id="resetButton" type="button">Reiniciar posicao</button>
+        <button id="hudMenuButton" class="hud-menu-button" type="button">Menu</button>
       </div>
 
       <canvas id="miniMapCanvas" class="mini-map" width="170" height="124"></canvas>
 
+      <div id="orientationHint" class="orientation-hint hidden">Vire o celular para jogar melhor</div>
+
+      <div class="mobile-top-actions" aria-label="Acoes mobile">
+        <button id="mobileFullscreenButton" class="touch-button" type="button">Tela cheia</button>
+        <button id="mobilePauseButton" class="touch-button" type="button">Pausa</button>
+        <button id="mobileDebugButton" class="touch-button debug-toggle hidden" type="button">Debug</button>
+      </div>
+
       <div class="touch-controls" aria-label="Controles touch">
+        <div id="joystickBase" class="joystick-base" aria-label="Joystick virtual">
+          <div id="joystickStick" class="joystick-stick"></div>
+        </div>
+
         <div class="touch-dpad">
           <button class="touch-button touch-up" type="button" data-touch-key="arrowup" aria-label="Mover para cima">▲</button>
           <button class="touch-button touch-left" type="button" data-touch-key="arrowleft" aria-label="Mover para esquerda">◀</button>
@@ -72,10 +100,18 @@
         <div class="touch-actions">
           <button id="touchInventoryButton" class="touch-button touch-small" type="button" aria-label="Abrir inventario">Inv</button>
           <button id="touchFireballButton" class="touch-button touch-spell" type="button" aria-label="Bola de Fogo">Q</button>
-          <button id="touchDashButton" class="touch-button touch-spell" type="button" aria-label="Dash">R</button>
+          <button id="touchDashButton" class="touch-button touch-spell" type="button" aria-label="Dash">Dash</button>
           <button id="touchShockwaveButton" class="touch-button touch-spell" type="button" aria-label="Onda de Choque">F</button>
           <button id="touchHealButton" class="touch-button touch-spell" type="button" aria-label="Cura Rapida">C</button>
+          <button id="touchPowerButton" class="touch-button touch-spell" type="button" aria-label="Usar poder equipado">Poder</button>
+          <button id="touchWeaponButton" class="touch-button touch-spell" type="button" aria-label="Trocar arma">Arma</button>
+          <button id="touchPotionButton" class="touch-button touch-spell" type="button" aria-label="Usar pocao">Pocao</button>
+          <button id="touchPower1Button" class="touch-button touch-mini" type="button" aria-label="Equipar poder 1">1</button>
+          <button id="touchPower2Button" class="touch-button touch-mini" type="button" aria-label="Equipar poder 2">2</button>
+          <button id="touchPower3Button" class="touch-button touch-mini" type="button" aria-label="Equipar poder 3">3</button>
+          <button id="touchPower4Button" class="touch-button touch-mini" type="button" aria-label="Equipar poder 4">4</button>
           <button id="touchActionButton" class="touch-button" type="button" aria-label="Acao">Ação</button>
+          <span id="touchContextLabel" class="touch-context-label">...</span>
           <button id="touchAttackButton" class="touch-button" type="button" aria-label="Ataque">Ataque</button>
         </div>
       </div>
@@ -87,6 +123,7 @@
       <div id="dialogBox" class="dialog hidden" role="status" aria-live="assertive">
         <p id="dialogText"></p>
         <span>Aperte E para continuar</span>
+        <button id="dialogContinueButton" type="button">Continuar</button>
       </div>
 
       <div id="inventoryPanel" class="panel inventory-panel hidden">
@@ -114,6 +151,32 @@
         <h2 id="infoTitle"></h2>
         <p id="infoText"></p>
       </div>
+
+      <div id="pausePanel" class="panel pause-panel hidden">
+        <h2>Menu</h2>
+        <button id="pauseContinueButton" type="button">Continuar</button>
+        <button id="pauseSaveButton" type="button">Salvar jogo</button>
+        <button id="pauseResetButton" type="button">Reiniciar posicao</button>
+        <button id="pauseHowToButton" type="button">Como jogar</button>
+        <button id="pauseMissionsButton" type="button">Missoes</button>
+        <button id="pauseStatusButton" type="button">Status</button>
+        <button id="pauseInventoryButton" type="button">Inventario</button>
+        <button id="pauseMenuButton" type="button">Sair para menu inicial</button>
+      </div>
+
+      <div id="missionsPanel" class="panel missions-panel hidden">
+        <button id="closeMissionsButton" type="button">Fechar</button>
+        <h2>Missoes</h2>
+        <ul id="missionsList"></ul>
+      </div>
+
+      <div id="statusPanel" class="panel status-panel hidden">
+        <button id="closeStatusButton" type="button">Fechar</button>
+        <h2>Status</h2>
+        <ul id="statusList"></ul>
+      </div>
+
+      <div id="debugPanel" class="debug-panel hidden"></div>
     </section>
 
     <aside class="controls">
@@ -122,8 +185,15 @@
       <ul>
         <li><strong>W A S D</strong> ou <strong>setas</strong>: mover</li>
         <li><strong>E</strong>: interagir</li>
-        <li><strong>Espaco</strong>: atacar</li>
-        <li><strong>Q/R/F/C</strong>: poderes especiais</li>
+        <li><strong>Mouse</strong>: mirar, clique esquerdo ataca</li>
+        <li><strong>Clique direito/Q</strong>: poder equipado</li>
+        <li><strong>1-4</strong>: escolher poder</li>
+        <li><strong>Tab</strong>: trocar arma</li>
+        <li><strong>Espaco</strong>: esquiva curta</li>
+        <li><strong>Esc</strong>: menu</li>
+        <li><strong>M</strong>: missoes</li>
+        <li><strong>C</strong>: status</li>
+        <li><strong>F3</strong>: debug</li>
         <li><strong>I</strong>: inventario</li>
         <li><strong>U</strong>: usar pocao</li>
         <li><strong>Botao</strong>: voltar ao inicio</li>

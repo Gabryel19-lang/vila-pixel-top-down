@@ -19,7 +19,13 @@ const healthHud = document.getElementById("healthHud");
 const manaHud = document.getElementById("manaHud");
 const manaFill = document.getElementById("manaFill");
 const coinHud = document.getElementById("coinHud");
+const weaponHud = document.getElementById("weaponHud");
+const oxygenHud = document.getElementById("oxygenHud");
+const oxygenFill = document.getElementById("oxygenFill");
 const powerHud = document.getElementById("powerHud");
+const bossHud = document.getElementById("bossHud");
+const bossNameHud = document.getElementById("bossNameHud");
+const bossFill = document.getElementById("bossFill");
 const resetButton = document.getElementById("resetButton");
 const dialogBox = document.getElementById("dialogBox");
 const dialogText = document.getElementById("dialogText");
@@ -44,6 +50,43 @@ const touchFireballButton = document.getElementById("touchFireballButton");
 const touchDashButton = document.getElementById("touchDashButton");
 const touchShockwaveButton = document.getElementById("touchShockwaveButton");
 const touchHealButton = document.getElementById("touchHealButton");
+const touchPowerButton = document.getElementById("touchPowerButton");
+const touchWeaponButton = document.getElementById("touchWeaponButton");
+const touchPower1Button = document.getElementById("touchPower1Button");
+const touchPower2Button = document.getElementById("touchPower2Button");
+const touchPower3Button = document.getElementById("touchPower3Button");
+const touchPower4Button = document.getElementById("touchPower4Button");
+const touchPotionButton = document.getElementById("touchPotionButton");
+const touchContextLabel = document.getElementById("touchContextLabel");
+const joystickBase = document.getElementById("joystickBase");
+const joystickStick = document.getElementById("joystickStick");
+const orientationHint = document.getElementById("orientationHint");
+const mobileFullscreenButton = document.getElementById("mobileFullscreenButton");
+const startFullscreenButton = document.getElementById("startFullscreenButton");
+const mobilePauseButton = document.getElementById("mobilePauseButton");
+const mobileDebugButton = document.getElementById("mobileDebugButton");
+const hudMenuButton = document.getElementById("hudMenuButton");
+const pausePanel = document.getElementById("pausePanel");
+const pauseContinueButton = document.getElementById("pauseContinueButton");
+const pauseSaveButton = document.getElementById("pauseSaveButton");
+const pauseResetButton = document.getElementById("pauseResetButton");
+const pauseHowToButton = document.getElementById("pauseHowToButton");
+const pauseMissionsButton = document.getElementById("pauseMissionsButton");
+const pauseStatusButton = document.getElementById("pauseStatusButton");
+const pauseInventoryButton = document.getElementById("pauseInventoryButton");
+const pauseMenuButton = document.getElementById("pauseMenuButton");
+const missionsPanel = document.getElementById("missionsPanel");
+const missionsList = document.getElementById("missionsList");
+const closeMissionsButton = document.getElementById("closeMissionsButton");
+const statusPanel = document.getElementById("statusPanel");
+const statusList = document.getElementById("statusList");
+const closeStatusButton = document.getElementById("closeStatusButton");
+const debugPanel = document.getElementById("debugPanel");
+const dialogContinueButton = document.getElementById("dialogContinueButton");
+
+if (bossHud && canvas.parentElement && bossHud.parentElement !== canvas.parentElement) {
+  canvas.parentElement.appendChild(bossHud);
+}
 
 const SAVE_KEY = "gabryel-garcia-o-brabo-save-v1";
 const TILE = 32;
@@ -86,26 +129,88 @@ let playerInvulnerableTimer = 0;
 let playerKnockbackX = 0;
 let playerKnockbackY = 0;
 let regenTickTimer = 0;
+let oxygenDamageTimer = 0;
+let waterSoundTimer = 0;
+let weaponCooldownTimer = 0;
+let dodgeCooldownTimer = 0;
+let equippedPower = "fireball";
+let currentWeaponIndex = 0;
+let currentMeleeAttack = null;
+let isMobile = false;
+let pauseOpen = false;
+let missionsOpen = false;
+let statusOpen = false;
+let mobileLockedTarget = null;
+let currentAutoAimTarget = null;
+let pressedMobileButton = "";
+let fpsEstimate = 0;
+let fpsFrameCount = 0;
+let fpsTimer = 0;
+let debugEnabled = new URLSearchParams(window.location.search).get("debug") === "1";
+let hudToastTimer = 0;
+let hudToastText = "";
+
+const joystick = {
+  active: false,
+  pointerId: null,
+  centerX: 0,
+  centerY: 0,
+  x: 0,
+  y: 0,
+  strength: 0
+};
+
+const mouseAim = {
+  screenX: 0,
+  screenY: 0,
+  worldX: 30 * TILE,
+  worldY: 24 * TILE,
+  angle: 0,
+  active: false
+};
 
 const activePowerUps = {
   speed: 0,
   force: 0,
   shield: 0,
-  regen: 0
+  regen: 0,
+  waterBreathing: 0
 };
 
 const projectiles = [];
+const playerProjectiles = projectiles;
 const enemyProjectiles = [];
 const floatingTexts = [];
 const shockwaves = [];
 const dashTrails = [];
 const healBursts = [];
+const lootItems = [];
+const hazardZones = [];
 
 const spellCosts = {
   fireball: 2,
+  blueRay: 2,
   dash: 1,
   shockwave: 3,
   heal: 3
+};
+
+const powerSlots = ["fireball", "blueRay", "shockwave", "heal"];
+
+const powerNames = {
+  fireball: "Bola de Fogo",
+  blueRay: "Raio Azul",
+  shockwave: "Onda de Choque",
+  heal: "Cura Magica"
+};
+
+const weaponOrder = ["sword", "bow", "staff", "spear"];
+
+const weapons = {
+  sword: { name: "Espada curta", damage: 2, range: 48, cooldown: 0.32, arc: Math.PI * 0.72, kind: "melee", damageType: "fisico" },
+  bow: { name: "Arco", damage: 2, range: 420, cooldown: 0.42, projectile: "arrow", projectileSpeed: 420, kind: "projectile", damageType: "fisico" },
+  staff: { name: "Cajado", damage: 3, range: 390, cooldown: 0.52, projectile: "blueMagic", projectileSpeed: 330, kind: "projectile", damageType: "magico" },
+  spear: { name: "Lanca", damage: 3, range: 72, cooldown: 0.48, arc: Math.PI * 0.24, kind: "line", damageType: "fisico" }
 };
 
 const quest = {
@@ -121,7 +226,12 @@ const inventory = {
   pocoes: 1,
   moedas: 8,
   espadas: 0,
-  cartas: 0
+  cartas: 0,
+  fragmentos: 0,
+  flechas: 12,
+  chavesRaras: 0,
+  manaOrbes: 0,
+  itensBoss: []
 };
 
 const questBook = {
@@ -131,7 +241,9 @@ const questBook = {
   letterPicked: false,
   letterDelivered: false,
   bossDefeated: false,
-  bossChestOpened: false
+  bossChestOpened: false,
+  defeatedBosses: {},
+  openedChests: {}
 };
 
 const dimensionQuest = {
@@ -163,15 +275,22 @@ const player = {
   speed: 150,
   maxHealth: 5,
   health: 5,
+  defense: 0,
+  critChance: 0.12,
   maxMana: 6,
   mana: 6,
   manaRegen: 0.45,
   spellCooldowns: {
     fireball: 0,
+    blueRay: 0,
     dash: 0,
     shockwave: 0,
     heal: 0
   },
+  unlockedWeapons: ["sword", "bow", "staff", "spear"],
+  isSwimming: false,
+  maxOxygen: 10,
+  oxygen: 10,
   direction: "down",
   moving: false,
   frame: 0,
@@ -233,6 +352,7 @@ function createWorldMap() {
   paintEllipse(map, 66, 24, 10, 7, "W");
   paintEllipse(map, 73, 24, 6, 5, "W");
   paintEllipse(map, 62, 27, 5, 4, "W");
+  paintEllipse(map, 36, 32, 3, 2, "W");
 
   return map;
 }
@@ -394,12 +514,16 @@ const villageObjects = [
   rock(18, 35), rock(41, 36), rock(7, 38), rock(58, 10),
 
   sign(33, 28, "MAPA EXPANDIDO: siga o novo caminho ao sul da praca para descobrir outras regioes."),
+  sign(35, 30, "TESTE DE COMBATE: use mouse, Tab, Q, 1-4 e Espaco para praticar."),
+  sign(34, 33, "Area de treino: armas liberadas, cristais de mana e lago pequeno para nadar."),
   sign(63, 18, "Lago Maior: a agua magica ficou mais profunda nesta parte da vila."),
+  sign(63, 23, "Lago dos Ecos: entre na agua para nadar, mas cuide do oxigenio."),
   sign(61, 9, "Ruinas Antigas: dizem que um guardiao desperta quando alguem treina magia aqui."),
   sign(58, 37, "Campo Aberto: bom para testar dash e bola de fogo."),
-  sign(7, 50, "Cemiterio Abandonado: os moradores evitam passar aqui de noite."),
-  sign(63, 43, "Arena de Treino: pratique ataques, poderes e esquiva."),
+  sign(7, 50, "Floresta profunda: aranhas, goblins e morcegos cercam os caminhos."),
+  sign(63, 43, "Arena do Guardiao: bosses mostram barra de vida no topo."),
   sign(72, 46, "Area Perigosa: monstros fortes causam mais dano."),
+  sign(74, 45, "Perigo: inimigos fortes e miniDragao guardam tesouros."),
   sign(53, 53, "Caminho Secreto: siga as pedras claras ate a floresta profunda."),
 
   house(60, 32, "Casa do Campo"),
@@ -424,6 +548,19 @@ const villageObjects = [
   enemy(9, 51, "mago"), enemy(15, 53, "slimeVermelho"),
   enemy(73, 49, "slimeVermelho"), enemy(77, 52, "golem"),
   enemy(68, 47, "guardiao"),
+  enemy(34, 31, "slimeVerde"), enemy(37, 34, "slimeVerde"), enemy(39, 31, "arqueiroGoblin"),
+  enemy(58, 34, "slimeVerde"), enemy(62, 38, "goblin"), enemy(66, 35, "arqueiroGoblin"),
+  enemy(8, 49, "aranha"), enemy(12, 50, "goblin"), enemy(17, 52, "morcego"),
+  enemy(20, 55, "aranha"), enemy(24, 51, "arqueiroGoblin"),
+  enemy(60, 24, "slimeAzul"), enemy(66, 26, "peixeHostil"), enemy(72, 24, "peixeHostil"),
+  enemy(63, 12, "fantasma"), enemy(68, 13, "magoSombrio"), enemy(72, 10, "golemPedra"),
+  enemy(75, 48, "miniDragao"), enemy(79, 54, "golemPedra"), enemy(74, 55, "magoSombrio"),
+  boss(35, 35, "miniGuardiao"),
+  boss(60, 30, "reiSlime"),
+  boss(14, 56, "aranhaRainha"),
+  boss(69, 10, "golemAncestral"),
+  boss(73, 14, "bruxoSombrio"),
+  boss(69, 24, "serpenteLago"),
   rareChest(67, 49)
 ];
 
@@ -505,7 +642,9 @@ const powerUps = [
   powerUp(12, 50, "regen"),
   powerUp(70, 38, "regen"),
   powerUp(58, 52, "mana"),
-  powerUp(69, 24, "mana")
+  powerUp(69, 24, "mana"),
+  powerUp(63, 25, "waterBreathing"),
+  powerUp(36, 32, "waterBreathing")
 ];
 
 let objects = villageObjects;
@@ -948,44 +1087,141 @@ function enemy(tileX, tileY, kind) {
     attackRange: stats.attackRange,
     attackCooldown: 0,
     attackDelay: stats.attackDelay,
+    attackTimer: 0,
     invulnerableTimer: 0,
     knockbackX: 0,
     knockbackY: 0,
+    canFly: Boolean(stats.canFly),
+    canSwim: Boolean(stats.canSwim),
+    projectileType: stats.projectileType || null,
     dropTable: stats.dropTable,
+    xpReward: stats.xpReward || stats.coinReward,
     coinReward: stats.coinReward,
+    coinsReward: stats.coinReward,
+    defense: stats.defense || 0,
+    resistances: stats.resistances || {},
     boss: stats.boss,
+    bossItem: stats.bossItem || null,
+    phase: 1,
     direction: Math.random() > 0.5 ? "left" : "right",
     moveTimer: 0,
     alive: true
   };
 }
 
+function boss(tileX, tileY, kind) {
+  const obj = enemy(tileX, tileY, kind);
+  obj.boss = true;
+  obj.state = "bossIdle";
+  return obj;
+}
+
 function getEnemyStats(kind) {
+  const baseDrop = { coin: 0.8, potion: 0.12, powerUp: 0.15, loot: 0.2 };
   const stats = {
-    slime: {
+    slimeVerde: {
       width: 22, height: 20, hp: 3, damage: 1, speed: 45,
       aggroRange: 190, attackRange: 28, attackDelay: 1.1, coinReward: 3,
-      dropTable: { coin: 0.75, potion: 0.12, powerUp: 0.15 }
+      projectileType: null, dropTable: baseDrop, xpReward: 2
     },
     slimeVermelho: {
-      width: 24, height: 22, hp: 5, damage: 2, speed: 52,
+      width: 24, height: 22, hp: 5, damage: 2, speed: 54,
       aggroRange: 230, attackRange: 30, attackDelay: 1.0, coinReward: 6,
-      dropTable: { coin: 0.9, potion: 0.16, powerUp: 0.22 }
+      projectileType: null, dropTable: { coin: 0.9, potion: 0.16, powerUp: 0.22, loot: 0.24 }, xpReward: 4
+    },
+    slimeAzul: {
+      width: 23, height: 21, hp: 4, damage: 1, speed: 48,
+      aggroRange: 230, attackRange: 150, attackDelay: 1.35, coinReward: 5,
+      canSwim: true, projectileType: "bubble", resistances: { agua: 0.5 },
+      dropTable: { coin: 0.8, potion: 0.1, powerUp: 0.2, loot: 0.3 }, xpReward: 3
     },
     morcego: {
       width: 24, height: 18, hp: 2, damage: 1, speed: 82,
       aggroRange: 250, attackRange: 26, attackDelay: 0.9, coinReward: 5,
-      dropTable: { coin: 0.8, potion: 0.08, powerUp: 0.16 }
+      canFly: true, dropTable: { coin: 0.8, potion: 0.08, powerUp: 0.16, loot: 0.18 }, xpReward: 3
     },
-    golem: {
+    aranha: {
+      width: 24, height: 18, hp: 4, damage: 1, speed: 62,
+      aggroRange: 230, attackRange: 32, attackDelay: 1.0, coinReward: 5,
+      projectileType: "web", dropTable: { coin: 0.75, potion: 0.1, powerUp: 0.18, loot: 0.25 }, xpReward: 4
+    },
+    goblin: {
+      width: 22, height: 28, hp: 5, damage: 1, speed: 66,
+      aggroRange: 250, attackRange: 30, attackDelay: 0.95, coinReward: 7,
+      dropTable: { coin: 0.9, potion: 0.12, powerUp: 0.18, loot: 0.28 }, xpReward: 5
+    },
+    arqueiroGoblin: {
+      width: 22, height: 28, hp: 4, damage: 1, speed: 52,
+      aggroRange: 280, attackRange: 215, attackDelay: 1.45, coinReward: 8,
+      projectileType: "arrow", dropTable: { coin: 0.9, potion: 0.1, powerUp: 0.2, loot: 0.4 }, xpReward: 5
+    },
+    magoSombrio: {
+      width: 24, height: 28, hp: 5, damage: 1, speed: 42,
+      aggroRange: 295, attackRange: 230, attackDelay: 1.55, coinReward: 10,
+      projectileType: "shadow", resistances: { sombra: 0.5 },
+      dropTable: { coin: 1, potion: 0.16, powerUp: 0.28, loot: 0.45 }, xpReward: 7
+    },
+    golemPedra: {
       width: 30, height: 30, hp: 9, damage: 2, speed: 32,
       aggroRange: 220, attackRange: 36, attackDelay: 1.35, coinReward: 10,
-      dropTable: { coin: 1, potion: 0.2, powerUp: 0.24 }
+      projectileType: "stone", defense: 1, resistances: { fisico: 0.75, magico: 1.25 },
+      dropTable: { coin: 1, potion: 0.2, powerUp: 0.24, loot: 0.36 }, xpReward: 8
     },
-    mago: {
-      width: 24, height: 28, hp: 4, damage: 1, speed: 38,
-      aggroRange: 280, attackRange: 210, attackDelay: 1.8, coinReward: 8,
-      dropTable: { coin: 1, potion: 0.16, powerUp: 0.28 }
+    fantasma: {
+      width: 24, height: 28, hp: 4, damage: 1, speed: 58,
+      aggroRange: 270, attackRange: 30, attackDelay: 1.1, coinReward: 7,
+      canFly: true, resistances: { fisico: 0.45, magico: 1.2 },
+      dropTable: { coin: 0.8, potion: 0.08, powerUp: 0.22, loot: 0.35 }, xpReward: 6
+    },
+    peixeHostil: {
+      width: 24, height: 16, hp: 3, damage: 1, speed: 72,
+      aggroRange: 240, attackRange: 26, attackDelay: 0.85, coinReward: 5,
+      canSwim: true, resistances: { agua: 0.5 },
+      dropTable: { coin: 0.75, potion: 0.08, powerUp: 0.2, loot: 0.35 }, xpReward: 4
+    },
+    miniDragao: {
+      width: 34, height: 26, hp: 12, damage: 2, speed: 68,
+      aggroRange: 330, attackRange: 250, attackDelay: 1.2, coinReward: 18,
+      canFly: true, projectileType: "fire", resistances: { fogo: 0.5, agua: 1.35 },
+      dropTable: { coin: 1, potion: 0.35, powerUp: 0.5, loot: 0.7 }, xpReward: 14
+    },
+    miniGuardiao: {
+      width: 34, height: 36, hp: 14, damage: 1, speed: 38,
+      aggroRange: 260, attackRange: 150, attackDelay: 1.25, coinReward: 20,
+      projectileType: "stone", defense: 1, boss: true, bossItem: "Insignia de Treino",
+      dropTable: { coin: 1, potion: 0.5, powerUp: 0.8, loot: 0.7 }, xpReward: 12
+    },
+    reiSlime: {
+      width: 42, height: 34, hp: 28, damage: 2, speed: 46,
+      aggroRange: 330, attackRange: 44, attackDelay: 1.05, coinReward: 35,
+      boss: true, bossItem: "Gelatina Real", projectileType: "slimeBall",
+      dropTable: { coin: 1, potion: 0.8, powerUp: 1, loot: 1 }, xpReward: 25
+    },
+    aranhaRainha: {
+      width: 44, height: 34, hp: 34, damage: 2, speed: 54,
+      aggroRange: 350, attackRange: 210, attackDelay: 1.25, coinReward: 42,
+      boss: true, bossItem: "Presa da Rainha", projectileType: "web",
+      dropTable: { coin: 1, potion: 0.8, powerUp: 1, loot: 1 }, xpReward: 30
+    },
+    golemAncestral: {
+      width: 46, height: 48, hp: 42, damage: 3, speed: 30,
+      aggroRange: 350, attackRange: 230, attackDelay: 1.35, coinReward: 50,
+      boss: true, bossItem: "Nucleo de Pedra", projectileType: "stone", defense: 2,
+      resistances: { fisico: 0.65, magico: 1.25 },
+      dropTable: { coin: 1, potion: 0.8, powerUp: 1, loot: 1 }, xpReward: 36
+    },
+    bruxoSombrio: {
+      width: 30, height: 38, hp: 36, damage: 2, speed: 48,
+      aggroRange: 380, attackRange: 260, attackDelay: 1.05, coinReward: 48,
+      boss: true, bossItem: "Olho Sombrio", projectileType: "shadow", resistances: { sombra: 0.45 },
+      dropTable: { coin: 1, potion: 0.8, powerUp: 1, loot: 1 }, xpReward: 34
+    },
+    serpenteLago: {
+      width: 54, height: 24, hp: 38, damage: 2, speed: 72,
+      aggroRange: 360, attackRange: 240, attackDelay: 1.15, coinReward: 50,
+      boss: true, bossItem: "Escama da Serpente", projectileType: "bubble", canSwim: true,
+      resistances: { agua: 0.45, fogo: 1.35 },
+      dropTable: { coin: 1, potion: 0.8, powerUp: 1, loot: 1 }, xpReward: 35
     },
     guardiao: {
       width: 38, height: 42, hp: 22, damage: 2, speed: 44,
@@ -994,6 +1230,10 @@ function getEnemyStats(kind) {
       boss: true
     }
   };
+
+  stats.slime = stats.slimeVerde;
+  stats.golem = stats.golemPedra;
+  stats.mago = stats.magoSombrio;
 
   return stats[kind] || stats.slime;
 }
@@ -1073,6 +1313,53 @@ function hitsWater(rect) {
   return false;
 }
 
+function isPointInVillageWater(x, y) {
+  if (currentScene !== "village") return false;
+  const tileX = Math.floor(x / TILE);
+  const tileY = Math.floor(y / TILE);
+  if (tileX < 0 || tileY < 0 || tileX >= MAP_COLS || tileY >= MAP_ROWS) return false;
+  return worldMap[tileY][tileX] === "W";
+}
+
+function updateSwimming(delta) {
+  if (currentScene !== "village") {
+    player.isSwimming = false;
+    player.oxygen = Math.min(player.maxOxygen, player.oxygen + delta * 3);
+    return;
+  }
+
+  const centerX = player.x + player.width / 2;
+  const centerY = player.y + player.height / 2 + 6;
+  player.isSwimming = isPointInVillageWater(centerX, centerY);
+
+  if (player.isSwimming) {
+    if (activePowerUps.waterBreathing <= 0) {
+      player.oxygen = Math.max(0, player.oxygen - delta * 0.55);
+    } else {
+      player.oxygen = Math.min(player.maxOxygen, player.oxygen + delta * 1.5);
+    }
+
+    waterSoundTimer -= delta;
+    if (waterSoundTimer <= 0) {
+      playSound("water");
+      waterSoundTimer = 1.6;
+    }
+
+    if (player.oxygen <= 0) {
+      oxygenDamageTimer -= delta;
+      if (oxygenDamageTimer <= 0) {
+        takeDamage(1, centerX, centerY);
+        oxygenDamageTimer = 1.4;
+      }
+    } else {
+      oxygenDamageTimer = 0.6;
+    }
+  } else {
+    player.oxygen = Math.min(player.maxOxygen, player.oxygen + delta * 2.2);
+    oxygenDamageTimer = 0;
+  }
+}
+
 function canMoveTo(nextX, nextY) {
   const rect = getPlayerRect(nextX, nextY);
   if (gameOver) return false;
@@ -1088,7 +1375,7 @@ function canMoveTo(nextX, nextY) {
     return false;
   }
 
-  if (hitsWater(rect)) return false;
+  if (hitsWater(rect) && currentScene !== "village") return false;
 
   return !colliders.some((obj) => isColliderActive(obj) && rectsOverlap(rect, obj));
 }
@@ -1107,9 +1394,22 @@ function canEntityMoveTo(entity, nextX, nextY) {
     return false;
   }
 
-  if ((currentScene === "village" || currentScene === "crystalDimension") && hitsWater(rect)) return false;
+  if (currentScene === "crystalDimension" && hitsWater(rect)) return false;
+  if (currentScene === "village" && hitsWater(rect) && !entity.canSwim && !entity.canFly) return false;
 
-  return !colliders.some((obj) => obj !== entity && obj.type !== "enemy" && isColliderActive(obj) && rectsOverlap(rect, obj));
+  return !colliders.some((obj) => (
+    obj !== entity &&
+    obj.type !== "enemy" &&
+    isColliderActive(obj) &&
+    !entityIgnoresCollider(entity, obj) &&
+    rectsOverlap(rect, obj)
+  ));
+}
+
+function entityIgnoresCollider(entity, obj) {
+  if (entity.canFly && ["tree", "fence", "rock", "well", "bench"].includes(obj.type)) return true;
+  if (entity.kind === "fantasma" && !["block", "house", "playerHouse", "shop", "cave"].includes(obj.type)) return true;
+  return false;
 }
 
 function getSceneWidth() {
@@ -1133,12 +1433,19 @@ function getSceneName() {
 }
 
 function setActiveScene(scene) {
-  currentScene = scene;
-  if (scene === "home") objects = homeObjects;
-  else if (scene === "shopInterior") objects = shopInteriorObjects;
-  else if (scene === "mayorInterior") objects = mayorInteriorObjects;
-  else if (scene === "crystalDimension") objects = crystalDimensionObjects;
+  const validScenes = ["village", "home", "shopInterior", "mayorInterior", "crystalDimension"];
+  const safeScene = validScenes.includes(scene) ? scene : "village";
+  if (safeScene !== scene) {
+    showErrorMessage(`Cena invalida "${scene}". Voltando para a vila.`);
+  }
+
+  currentScene = safeScene;
+  if (safeScene === "home") objects = homeObjects;
+  else if (safeScene === "shopInterior") objects = shopInteriorObjects;
+  else if (safeScene === "mayorInterior") objects = mayorInteriorObjects;
+  else if (safeScene === "crystalDimension") objects = crystalDimensionObjects;
   else objects = villageObjects;
+  normalizeRuntimeState();
   colliders = objects.filter((obj) => obj.solid);
   interactables = objects.filter((obj) => obj.message);
   closeDialog();
@@ -1146,6 +1453,153 @@ function setActiveScene(scene) {
   keys.clear();
   projectiles.length = 0;
   enemyProjectiles.length = 0;
+}
+
+function normalizeRuntimeState() {
+  inventory.fragmentos = Number(inventory.fragmentos || 0);
+  inventory.flechas = Number(inventory.flechas ?? 12);
+  inventory.chavesRaras = Number(inventory.chavesRaras || 0);
+  inventory.manaOrbes = Number(inventory.manaOrbes || 0);
+  if (!Array.isArray(inventory.itensBoss)) inventory.itensBoss = [];
+
+  if (!questBook.defeatedBosses || typeof questBook.defeatedBosses !== "object") {
+    questBook.defeatedBosses = {};
+  }
+  if (!questBook.openedChests || typeof questBook.openedChests !== "object") {
+    questBook.openedChests = {};
+  }
+
+  if (!Array.isArray(player.unlockedWeapons) || !player.unlockedWeapons.length) player.unlockedWeapons = [...weaponOrder];
+  player.unlockedWeapons = player.unlockedWeapons.filter((key) => weapons[key]);
+  if (!player.unlockedWeapons.length) player.unlockedWeapons = ["sword"];
+  currentWeaponIndex = Number.isFinite(Number(currentWeaponIndex)) ? Math.floor(Number(currentWeaponIndex)) : 0;
+  currentWeaponIndex = clamp(currentWeaponIndex, 0, player.unlockedWeapons.length - 1);
+  if (!powerSlots.includes(equippedPower)) equippedPower = "fireball";
+  if (!Number.isFinite(player.oxygen)) player.oxygen = player.maxOxygen;
+  if (!Number.isFinite(player.maxOxygen)) player.maxOxygen = 10;
+  player.oxygen = clamp(player.oxygen, 0, player.maxOxygen);
+
+  for (const obj of villageObjects) {
+    if (obj.type === "enemy") normalizeEnemy(obj);
+  }
+}
+
+function normalizeEnemy(obj) {
+  const stats = getEnemyStats(obj.kind);
+  obj.width = obj.width || stats.width;
+  obj.height = obj.height || stats.height;
+  obj.maxHp = obj.maxHp || stats.hp;
+  obj.hp = Number.isFinite(obj.hp) ? clamp(obj.hp, 0, obj.maxHp) : obj.maxHp;
+  obj.damage = obj.damage || stats.damage;
+  obj.speed = obj.speed || stats.speed;
+  obj.aggroRange = obj.aggroRange || stats.aggroRange;
+  obj.attackRange = obj.attackRange || stats.attackRange;
+  obj.attackDelay = obj.attackDelay || stats.attackDelay;
+  obj.attackCooldown = Number.isFinite(obj.attackCooldown) ? obj.attackCooldown : 0;
+  obj.attackTimer = Number.isFinite(obj.attackTimer) ? obj.attackTimer : 0;
+  obj.invulnerableTimer = Number.isFinite(obj.invulnerableTimer) ? obj.invulnerableTimer : 0;
+  obj.knockbackX = Number.isFinite(obj.knockbackX) ? obj.knockbackX : 0;
+  obj.knockbackY = Number.isFinite(obj.knockbackY) ? obj.knockbackY : 0;
+  obj.spawnX = Number.isFinite(obj.spawnX) ? obj.spawnX : obj.x;
+  obj.spawnY = Number.isFinite(obj.spawnY) ? obj.spawnY : obj.y;
+  obj.canFly = Boolean(obj.canFly || stats.canFly);
+  obj.canSwim = Boolean(obj.canSwim || stats.canSwim);
+  obj.projectileType = obj.projectileType || stats.projectileType || null;
+  obj.dropTable = obj.dropTable || stats.dropTable || { coin: 0.7, potion: 0.1, powerUp: 0.1, loot: 0.1 };
+  obj.coinReward = Number.isFinite(obj.coinReward) ? obj.coinReward : stats.coinReward;
+  obj.coinsReward = obj.coinReward;
+  obj.xpReward = obj.xpReward || stats.xpReward || obj.coinReward;
+  obj.defense = Number.isFinite(obj.defense) ? obj.defense : stats.defense || 0;
+  obj.resistances = obj.resistances || stats.resistances || {};
+  obj.boss = Boolean(obj.boss || stats.boss);
+  obj.bossItem = obj.bossItem || stats.bossItem || null;
+  obj.phase = obj.phase || 1;
+  obj.direction = obj.direction || "down";
+  obj.moveTimer = Number.isFinite(obj.moveTimer) ? obj.moveTimer : 0;
+  obj.alive = obj.alive !== false;
+}
+
+function updateDeviceMode() {
+  isMobile = window.matchMedia("(max-width: 880px), (pointer: coarse)").matches;
+  document.body.classList.toggle("is-mobile", isMobile);
+
+  const tooSmall = isMobile && window.innerWidth < 720 && window.innerHeight > window.innerWidth;
+  orientationHint?.classList.toggle("hidden", !tooSmall);
+  mobileDebugButton?.classList.toggle("hidden", !debugEnabled);
+  debugPanel?.classList.toggle("hidden", !debugEnabled);
+}
+
+function ensureCanvasSize() {
+  if (canvas.width <= 0) canvas.width = 960;
+  if (canvas.height <= 0) canvas.height = 640;
+  if (miniMapCanvas.width <= 0) miniMapCanvas.width = 170;
+  if (miniMapCanvas.height <= 0) miniMapCanvas.height = 124;
+}
+
+function vibrate(pattern = 20) {
+  if (!isMobile || !navigator.vibrate) return;
+  try {
+    navigator.vibrate(pattern);
+  } catch (error) {
+    // Alguns navegadores bloqueiam vibracao fora de gestos do usuario.
+  }
+}
+
+function setMobilePressedButton(name) {
+  pressedMobileButton = name;
+}
+
+function clearMobilePressedButton(name) {
+  if (pressedMobileButton === name) pressedMobileButton = "";
+}
+
+function requestGameFullscreen() {
+  const target = document.documentElement;
+  const request = target.requestFullscreen || target.webkitRequestFullscreen || target.msRequestFullscreen;
+  if (!request) {
+    startMessage.textContent = "Tela cheia nao e suportada neste navegador.";
+    return;
+  }
+
+  try {
+    const result = request.call(target);
+    if (result?.catch) {
+      result.catch(() => {
+        startMessage.textContent = "Toque novamente para ativar tela cheia.";
+      });
+    }
+  } catch (error) {
+    startMessage.textContent = "Toque novamente para ativar tela cheia.";
+  }
+}
+
+function setPause(open) {
+  pauseOpen = Boolean(open);
+  pausePanel?.classList.toggle("hidden", !pauseOpen);
+  if (pauseOpen) {
+    closeOverlayPanels();
+    keys.clear();
+  }
+}
+
+function showHowTo() {
+  showInfo(
+    "Como Jogar",
+    "PC:\nW A S D ou setas: mover\nMouse: mirar\nClique esquerdo: atacar\nClique direito ou Q: poder equipado\n1-4: escolher poder\nTab: trocar arma\nEspaco: dash\nE: interagir\nI: inventario\nU: pocao\nM: missoes\nC: status\nEsc: menu\nF3: debug com X/Y\n\nCelular:\nUse o joystick para mover.\nAtaque mira automaticamente no inimigo mais proximo.\nPoder usa o poder escolhido na barra 1-4.\nMenu abre salvar, reiniciar, missoes, status e inventario.\nUse em modo horizontal para jogar melhor."
+  );
+}
+
+function returnToStartMenu() {
+  setPause(false);
+  closeOverlayPanels();
+  closeDialog();
+  closeShop();
+  inventoryOpen = false;
+  inventoryPanel.classList.add("hidden");
+  gameStarted = false;
+  startScreen.classList.remove("hidden");
+  keys.clear();
+  resetJoystick();
 }
 
 function enterHome() {
@@ -1201,6 +1655,8 @@ function enterCrystalDimension() {
   player.y = 30 * TILE;
   player.direction = "up";
   playSound("portal");
+  vibrate([20, 35, 20]);
+  showHudToast("Voce entrou na Dimensao Cristalina");
   showDialogMessage("Voce atravessou o portal e chegou na Dimensao Cristalina.");
   updateQuestProgress();
 }
@@ -1211,6 +1667,8 @@ function exitCrystalDimension() {
   player.y = 27 * TILE;
   player.direction = "down";
   playSound("portal");
+  vibrate([20, 35, 20]);
+  showHudToast("Voce voltou para a vila");
   showDialogMessage("O portal devolveu voce para a vila.");
   updateQuestProgress();
 }
@@ -1261,13 +1719,22 @@ function handleMapTransitions() {
 }
 
 function update(delta) {
+  ensureCanvasSize();
+  if (!["village", "home", "shopInterior", "mayorInterior", "crystalDimension"].includes(currentScene)) {
+    setActiveScene("village");
+  }
+
   if (!gameStarted) {
     updateHud();
+    updateDebugPanel(delta);
+    updateHudToast(delta);
     return;
   }
 
   if (gameOver) {
     updateHud();
+    updateDebugPanel(delta);
+    updateHudToast(delta);
     return;
   }
 
@@ -1278,22 +1745,32 @@ function update(delta) {
     updateFloatingTexts(delta);
     updateVisualEffects(delta);
     updateHud();
+    updateHudToast(delta);
     return;
   }
 
-  const inputX = (keys.has("arrowright") || keys.has("d") ? 1 : 0) -
-    (keys.has("arrowleft") || keys.has("a") ? 1 : 0);
-  const inputY = (keys.has("arrowdown") || keys.has("s") ? 1 : 0) -
-    (keys.has("arrowup") || keys.has("w") ? 1 : 0);
+  if (pauseOpen || inventoryOpen || shopOpen) {
+    updateHud();
+    updateInteractionHint();
+    updateDebugPanel(delta);
+    updateHudToast(delta);
+    return;
+  }
+
+  const movement = getMovementInput();
+  const inputX = movement.x;
+  const inputY = movement.y;
 
   player.moving = inputX !== 0 || inputY !== 0;
 
   applyPlayerKnockback(delta);
+  updateSwimming(delta);
 
   if (player.moving && !dialogOpen && !inventoryOpen && !shopOpen && Math.abs(playerKnockbackX) + Math.abs(playerKnockbackY) < 8) {
     const length = Math.hypot(inputX, inputY) || 1;
-    const moveX = (inputX / length) * getPlayerSpeed() * delta;
-    const moveY = (inputY / length) * getPlayerSpeed() * delta;
+    const strength = movement.strength;
+    const moveX = (inputX / length) * getPlayerSpeed() * strength * delta;
+    const moveY = (inputY / length) * getPlayerSpeed() * strength * delta;
 
     if (Math.abs(inputX) > Math.abs(inputY)) {
       player.direction = inputX > 0 ? "right" : "left";
@@ -1304,6 +1781,7 @@ function update(delta) {
     // Testa cada eixo separado para o jogador deslizar em paredes.
     if (canMoveTo(player.x + moveX, player.y)) player.x += moveX;
     if (canMoveTo(player.x, player.y + moveY)) player.y += moveY;
+    updateSwimming(delta);
     handleMapTransitions();
 
     player.animTimer += delta;
@@ -1320,8 +1798,10 @@ function update(delta) {
   updateEnemies(delta);
   updateProjectiles(delta);
   updateEnemyProjectiles(delta);
+  updateHazards(delta);
   collectWorldItems();
   collectPowerUps();
+  updateLoot(delta);
   updateAttack(delta);
   updateFloatingTexts(delta);
   updateVisualEffects(delta);
@@ -1329,11 +1809,13 @@ function update(delta) {
   camera.x = clamp(player.x + player.width / 2 - canvas.width / 2, 0, getSceneWidth() - canvas.width);
   camera.y = clamp(player.y + player.height / 2 - canvas.height / 2, 0, getSceneHeight() - canvas.height);
 
-  playerPositionEl.textContent = `${getAreaName()} - X: ${Math.round(player.x)} / Y: ${Math.round(player.y)}`;
+  playerPositionEl.textContent = getAreaName();
   collectCrystals();
   updateQuestProgress();
   updateHud();
   updateInteractionHint();
+  updateDebugPanel(delta);
+  updateHudToast(delta);
   if (saveNoticeTimer > 0) saveNoticeTimer = Math.max(0, saveNoticeTimer - delta);
 }
 
@@ -1375,9 +1857,11 @@ function updateEnemies(delta) {
 
   for (const obj of villageObjects) {
     if (obj.type !== "enemy" || !obj.alive) continue;
+    normalizeEnemy(obj);
 
     obj.invulnerableTimer = Math.max(0, obj.invulnerableTimer - delta);
     obj.attackCooldown = Math.max(0, obj.attackCooldown - delta);
+    obj.attackTimer = Math.max(0, obj.attackTimer - delta);
 
     if (Math.abs(obj.knockbackX) + Math.abs(obj.knockbackY) > 1) {
       const nextX = obj.x + obj.knockbackX * delta;
@@ -1396,35 +1880,70 @@ function updateEnemies(delta) {
     const enemyCenterY = obj.y + obj.height / 2;
     const distanceToPlayer = Math.hypot(playerCenterX - enemyCenterX, playerCenterY - enemyCenterY);
     const distanceToSpawn = Math.hypot(obj.x - obj.spawnX, obj.y - obj.spawnY);
+    const isAquaticHunter = obj.kind === "peixeHostil" || obj.kind === "serpenteLago";
+    const canNoticePlayer = !isAquaticHunter || player.isSwimming || distanceToPlayer < 90;
+    const isRanged = Boolean(obj.projectileType);
 
-    if ((obj.kind === "mago" || obj.kind === "guardiao") && distanceToPlayer < obj.attackRange && obj.attackCooldown <= 0) {
+    if (obj.boss) {
+      obj.phase = obj.hp <= obj.maxHp * 0.5 ? 2 : 1;
+    }
+
+    if (canNoticePlayer && isRanged && distanceToPlayer < obj.attackRange && obj.attackCooldown <= 0) {
       fireEnemyProjectile(obj, playerCenterX, playerCenterY);
-      obj.attackCooldown = obj.attackDelay;
+      if (obj.boss && obj.phase === 2) fireBossPattern(obj, playerCenterX, playerCenterY);
+      if (obj.kind === "aranhaRainha" || obj.kind === "aranha") {
+        spawnHazardZone("web", playerCenterX, playerCenterY, obj.boss ? 44 : 30, 2.3, 1);
+      }
+      obj.attackCooldown = obj.attackDelay * (obj.phase === 2 ? 0.72 : 1);
       obj.state = "attack";
     }
 
-    if (distanceToPlayer < obj.aggroRange) {
+    if (distanceToPlayer < obj.aggroRange && canNoticePlayer) {
       obj.state = "chase";
-      moveEnemyToward(obj, playerCenterX - enemyCenterX, playerCenterY - enemyCenterY, delta);
+      const lowHealth = obj.hp <= obj.maxHp * 0.3;
+      const shouldFlee = lowHealth && ["goblin", "arqueiroGoblin", "magoSombrio", "bruxoSombrio"].includes(obj.kind);
+      const shouldKeepDistance = isRanged && distanceToPlayer < obj.attackRange * 0.55;
+      const speedMultiplier = obj.boss && obj.phase === 2 ? 1.18 : 1;
+
+      if (shouldFlee || shouldKeepDistance) {
+        obj.state = "retreat";
+        moveEnemyToward(obj, enemyCenterX - playerCenterX, enemyCenterY - playerCenterY, delta, speedMultiplier * 0.78);
+      } else {
+        let chaseX = playerCenterX - enemyCenterX;
+        let chaseY = playerCenterY - enemyCenterY;
+        if (obj.kind === "aranha" || obj.kind === "aranhaRainha") {
+          chaseX += Math.sin(performance.now() / 260 + obj.spawnX) * 60;
+          chaseY += Math.cos(performance.now() / 280 + obj.spawnY) * 45;
+        }
+        moveEnemyToward(obj, chaseX, chaseY, delta, speedMultiplier);
+      }
     } else if (distanceToSpawn > TILE * 2) {
       obj.state = "return";
-      moveEnemyToward(obj, obj.spawnX - obj.x, obj.spawnY - obj.y, delta);
+      moveEnemyToward(obj, obj.spawnX - obj.x, obj.spawnY - obj.y, delta, 0.75);
     } else {
       obj.state = "idle";
       updateEnemyWander(obj, delta);
     }
 
-    if (obj.boss && distanceToPlayer < 95 && obj.attackCooldown <= 0) {
+    if (obj.kind === "slimeVermelho" && obj.state === "chase" && Math.random() < delta * 0.55) {
+      spawnHazardZone("slime", enemyCenterX, enemyCenterY, 24, 1.8, 1);
+    }
+
+    if (obj.kind === "serpenteLago" && obj.phase === 2 && Math.random() < delta * 0.35) {
+      spawnHazardZone("whirlpool", playerCenterX, playerCenterY, 38, 1.6, 1);
+    }
+
+    if (obj.boss && distanceToPlayer < 130 && obj.attackTimer <= 0) {
       enemyProjectiles.push({
         type: "bossWave",
         x: enemyCenterX,
         y: enemyCenterY,
         radius: 10,
-        maxRadius: 88,
+        maxRadius: obj.phase === 2 ? 120 : 88,
         timer: 0.7,
         damage: obj.damage
       });
-      obj.attackCooldown = obj.attackDelay + 0.4;
+      obj.attackTimer = obj.attackDelay + (obj.phase === 2 ? 0.35 : 0.8);
       playSound("shockwave");
     }
 
@@ -1435,16 +1954,29 @@ function updateEnemies(delta) {
   }
 }
 
-function moveEnemyToward(obj, dx, dy, delta) {
+function moveEnemyToward(obj, dx, dy, delta, speedMultiplier = 1) {
   const length = Math.hypot(dx, dy) || 1;
-  const nextX = obj.x + (dx / length) * obj.speed * delta;
-  const nextY = obj.y + (dy / length) * obj.speed * delta;
+  const nextX = obj.x + (dx / length) * obj.speed * speedMultiplier * delta;
+  const nextY = obj.y + (dy / length) * obj.speed * speedMultiplier * delta;
 
   if (Math.abs(dx) > Math.abs(dy)) obj.direction = dx > 0 ? "right" : "left";
   else obj.direction = dy > 0 ? "down" : "up";
 
-  if (canEntityMoveTo(obj, nextX, obj.y)) obj.x = nextX;
-  if (canEntityMoveTo(obj, obj.x, nextY)) obj.y = nextY;
+  if (canEntityMoveTo(obj, nextX, obj.y) && !enemyWouldCrowd(obj, nextX, obj.y)) obj.x = nextX;
+  if (canEntityMoveTo(obj, obj.x, nextY) && !enemyWouldCrowd(obj, obj.x, nextY)) obj.y = nextY;
+}
+
+function enemyWouldCrowd(obj, nextX, nextY) {
+  const centerX = nextX + obj.width / 2;
+  const centerY = nextY + obj.height / 2;
+
+  return villageObjects.some((other) => {
+    if (other === obj || other.type !== "enemy" || !other.alive) return false;
+    const otherCenterX = other.x + other.width / 2;
+    const otherCenterY = other.y + other.height / 2;
+    const minDistance = (Math.max(obj.width, obj.height) + Math.max(other.width, other.height)) * 0.38;
+    return Math.hypot(centerX - otherCenterX, centerY - otherCenterY) < minDistance;
+  });
 }
 
 function updateEnemyWander(obj, delta) {
@@ -1460,7 +1992,7 @@ function updateEnemyWander(obj, delta) {
   const nextX = obj.x + step.x * obj.speed * 0.55 * delta;
   const nextY = obj.y + step.y * obj.speed * 0.55 * delta;
   const nearSpawn = Math.hypot(nextX - obj.spawnX, nextY - obj.spawnY) < TILE * 4;
-  if (nearSpawn && canEntityMoveTo(obj, nextX, nextY)) {
+  if (nearSpawn && canEntityMoveTo(obj, nextX, nextY) && !enemyWouldCrowd(obj, nextX, nextY)) {
     obj.x = nextX;
     obj.y = nextY;
   } else {
@@ -1468,26 +2000,62 @@ function updateEnemyWander(obj, delta) {
   }
 }
 
-function fireEnemyProjectile(obj, targetX, targetY) {
+function fireEnemyProjectile(obj, targetX, targetY, angleOffset = 0) {
   const centerX = obj.x + obj.width / 2;
   const centerY = obj.y + obj.height / 2;
   const dx = targetX - centerX;
   const dy = targetY - centerY;
-  const length = Math.hypot(dx, dy) || 1;
-  const speed = obj.boss ? 185 : 150;
+  const angle = Math.atan2(dy, dx) + angleOffset;
+  const type = obj.projectileType || (obj.boss ? "bossBolt" : "shadow");
+  const config = getEnemyProjectileConfig(type, obj);
 
   enemyProjectiles.push({
-    type: obj.boss ? "bossBolt" : "shadowBolt",
-    x: centerX - 5,
-    y: centerY - 5,
-    width: obj.boss ? 14 : 10,
-    height: obj.boss ? 14 : 10,
-    vx: (dx / length) * speed,
-    vy: (dy / length) * speed,
+    type,
+    x: centerX - config.width / 2,
+    y: centerY - config.height / 2,
+    width: config.width,
+    height: config.height,
+    vx: Math.cos(angle) * config.speed,
+    vy: Math.sin(angle) * config.speed,
     damage: obj.damage,
-    timer: obj.boss ? 2.2 : 1.9
+    timer: config.timer
   });
   playSound("enemyMagic");
+}
+
+function getEnemyProjectileConfig(type, obj) {
+  const bossBoost = obj.boss ? 1.18 : 1;
+  const configs = {
+    arrow: { width: 14, height: 5, speed: 210 * bossBoost, timer: 2.2 },
+    shadow: { width: 11, height: 11, speed: 170 * bossBoost, timer: 2.1 },
+    stone: { width: 13, height: 13, speed: 155 * bossBoost, timer: 2.3 },
+    bubble: { width: 12, height: 12, speed: 170 * bossBoost, timer: 2.2 },
+    fire: { width: 13, height: 13, speed: 220 * bossBoost, timer: 2.0 },
+    slimeBall: { width: 14, height: 12, speed: 165 * bossBoost, timer: 2.0 },
+    web: { width: 14, height: 14, speed: 155 * bossBoost, timer: 2.0 },
+    bossBolt: { width: 14, height: 14, speed: 190, timer: 2.2 }
+  };
+  return configs[type] || configs.shadow;
+}
+
+function fireBossPattern(obj, targetX, targetY) {
+  if (obj.kind === "reiSlime") {
+    fireEnemyProjectile(obj, targetX, targetY, -0.38);
+    fireEnemyProjectile(obj, targetX, targetY, 0.38);
+  } else if (obj.kind === "aranhaRainha") {
+    spawnHazardZone("web", targetX, targetY, 48, 2.5, 1);
+  } else if (obj.kind === "golemAncestral") {
+    fireEnemyProjectile(obj, targetX, targetY, -0.24);
+    fireEnemyProjectile(obj, targetX, targetY, 0.24);
+  } else if (obj.kind === "bruxoSombrio") {
+    for (const offset of [-0.42, 0, 0.42]) fireEnemyProjectile(obj, targetX, targetY, offset);
+  } else if (obj.kind === "serpenteLago") {
+    spawnHazardZone("whirlpool", targetX, targetY, 42, 1.8, 1);
+    fireEnemyProjectile(obj, targetX, targetY, -0.3);
+    fireEnemyProjectile(obj, targetX, targetY, 0.3);
+  } else {
+    fireEnemyProjectile(obj, targetX, targetY, 0.32);
+  }
 }
 
 function directionVector(direction) {
@@ -1497,8 +2065,147 @@ function directionVector(direction) {
   return { x: 0, y: 1 };
 }
 
+function getMovementInput() {
+  const keyboardX = (keys.has("arrowright") || keys.has("d") ? 1 : 0) -
+    (keys.has("arrowleft") || keys.has("a") ? 1 : 0);
+  const keyboardY = (keys.has("arrowdown") || keys.has("s") ? 1 : 0) -
+    (keys.has("arrowup") || keys.has("w") ? 1 : 0);
+  const keyboardLength = Math.hypot(keyboardX, keyboardY);
+
+  if (joystick.active || joystick.strength > 0.05) {
+    return {
+      x: joystick.x,
+      y: joystick.y,
+      strength: clamp(joystick.strength, 0, 1)
+    };
+  }
+
+  return {
+    x: keyboardX,
+    y: keyboardY,
+    strength: keyboardLength > 0 ? 1 : 0
+  };
+}
+
+function getAimVector() {
+  const centerX = player.x + player.width / 2;
+  const centerY = player.y + player.height / 2;
+
+  if (isMobile) {
+    return getMobileAimDirection();
+  }
+
+  if (mouseAim.active) {
+    const dx = mouseAim.worldX - centerX;
+    const dy = mouseAim.worldY - centerY;
+    const length = Math.hypot(dx, dy) || 1;
+    return { x: dx / length, y: dy / length, angle: Math.atan2(dy, dx) };
+  }
+
+  const vector = directionVector(player.direction);
+  return { ...vector, angle: Math.atan2(vector.y, vector.x) };
+}
+
+function getNearestEnemyToPlayer(maxDistance = 320) {
+  if (currentScene !== "village") return null;
+
+  const centerX = player.x + player.width / 2;
+  const centerY = player.y + player.height / 2;
+  let nearest = null;
+  let nearestDistance = maxDistance;
+
+  for (const obj of villageObjects) {
+    if (obj.type !== "enemy" || !obj.alive) continue;
+    const enemyX = obj.x + obj.width / 2;
+    const enemyY = obj.y + obj.height / 2;
+    const distance = Math.hypot(enemyX - centerX, enemyY - centerY);
+    if (distance <= nearestDistance) {
+      nearest = obj;
+      nearestDistance = distance;
+    }
+  }
+
+  return nearest;
+}
+
+function getMobileAimDirection(maxDistance = 360) {
+  const centerX = player.x + player.width / 2;
+  const centerY = player.y + player.height / 2;
+  let target = mobileLockedTarget;
+
+  if (!target || !target.alive || Math.hypot(target.x - player.x, target.y - player.y) > maxDistance + 90) {
+    target = getNearestEnemyToPlayer(maxDistance);
+  }
+
+  currentAutoAimTarget = target;
+
+  if (target) {
+    const dx = target.x + target.width / 2 - centerX;
+    const dy = target.y + target.height / 2 - centerY;
+    const length = Math.hypot(dx, dy) || 1;
+    return { x: dx / length, y: dy / length, angle: Math.atan2(dy, dx), target };
+  }
+
+  if (joystick.strength > 0.08) {
+    return { x: joystick.x, y: joystick.y, angle: Math.atan2(joystick.y, joystick.x), target: null };
+  }
+
+  const vector = directionVector(player.direction);
+  return { ...vector, angle: Math.atan2(vector.y, vector.x), target: null };
+}
+
+function updateDirectionFromAim() {
+  const aim = getAimVector();
+  if (Math.abs(aim.x) > Math.abs(aim.y)) player.direction = aim.x >= 0 ? "right" : "left";
+  else player.direction = aim.y >= 0 ? "down" : "up";
+}
+
+function getCurrentWeaponKey() {
+  const unlocked = player.unlockedWeapons?.length ? player.unlockedWeapons : weaponOrder;
+  return unlocked[currentWeaponIndex % unlocked.length] || "sword";
+}
+
+function getCurrentWeapon() {
+  return weapons[getCurrentWeaponKey()] || weapons.sword;
+}
+
+function cycleWeapon() {
+  const unlocked = player.unlockedWeapons?.length ? player.unlockedWeapons : weaponOrder;
+  currentWeaponIndex = (currentWeaponIndex + 1) % unlocked.length;
+  spawnFloatingText(`Arma: ${getCurrentWeapon().name}`, player.x + 10, player.y - 18, "#fff264");
+  showHudToast(`Arma equipada: ${getCurrentWeapon().name}`);
+  playSound("weaponSwap");
+  updateHud();
+}
+
+function equipPower(slotIndex) {
+  equippedPower = powerSlots[slotIndex] || "fireball";
+  spawnFloatingText(`Poder equipado: ${powerNames[equippedPower]}`, player.x + 12, player.y - 18, "#55e8ff");
+  showHudToast(`Poder equipado: ${powerNames[equippedPower]}`);
+  playSound("powerup");
+  vibrate(10);
+  updateMobilePowerButtons();
+  updateHud();
+}
+
+function useEquippedPower() {
+  if (equippedPower === "fireball") castFireball();
+  else if (equippedPower === "blueRay") castBlueRay();
+  else if (equippedPower === "shockwave") shockwave();
+  else if (equippedPower === "heal") quickHeal();
+}
+
+function updateMobilePowerButtons() {
+  const buttons = [touchPower1Button, touchPower2Button, touchPower3Button, touchPower4Button];
+  buttons.forEach((button, index) => {
+    button?.classList.toggle("is-equipped", powerSlots[index] === equippedPower);
+  });
+}
+
 function getPlayerSpeed() {
-  return player.speed + (activePowerUps.speed > 0 ? 70 : 0);
+  let speed = player.speed + (activePowerUps.speed > 0 ? 70 : 0);
+  if (player.isSwimming) speed *= activePowerUps.waterBreathing > 0 ? 0.82 : 0.58;
+  return speed;
 }
 
 function getAreaName() {
@@ -1564,6 +2271,7 @@ function applyPlayerKnockback(delta) {
 function spendMana(cost) {
   if (player.mana < cost) {
     spawnFloatingText("Mana insuficiente!", player.x - 18, player.y - 18, "#55e8ff");
+    showHudToast("Mana insuficiente!");
     return false;
   }
 
@@ -1572,7 +2280,7 @@ function spendMana(cost) {
 }
 
 function canUsePower(name, cost) {
-  if (gameOver || dialogOpen || inventoryOpen || shopOpen) return false;
+  if (gameOver || dialogOpen || inventoryOpen || shopOpen || pauseOpen) return false;
   if (player.spellCooldowns[name] > 0) return false;
   return spendMana(cost);
 }
@@ -1580,10 +2288,11 @@ function canUsePower(name, cost) {
 function castFireball() {
   if (!canUsePower("fireball", spellCosts.fireball)) return;
 
-  const vector = directionVector(player.direction);
+  updateDirectionFromAim();
+  const vector = getAimVector();
   const centerX = player.x + player.width / 2;
   const centerY = player.y + player.height / 2;
-  projectiles.push({
+  spawnPlayerProjectile({
     type: "fireball",
     x: centerX - 6,
     y: centerY - 6,
@@ -1592,11 +2301,49 @@ function castFireball() {
     vx: vector.x * 330,
     vy: vector.y * 330,
     damage: activePowerUps.force > 0 ? 4 : 3,
+    damageType: "fogo",
     distance: 0,
     maxDistance: 360
   });
   player.spellCooldowns.fireball = 0.55;
   playSound("magic");
+  vibrate(22);
+}
+
+function castBlueRay() {
+  if (!canUsePower("blueRay", spellCosts.blueRay)) return;
+
+  updateDirectionFromAim();
+  const vector = getAimVector();
+  const centerX = player.x + player.width / 2;
+  const centerY = player.y + player.height / 2;
+  spawnPlayerProjectile({
+    type: "blueRay",
+    x: centerX - 5,
+    y: centerY - 5,
+    width: 10,
+    height: 10,
+    vx: vector.x * 520,
+    vy: vector.y * 520,
+    damage: 3,
+    damageType: "magico",
+    distance: 0,
+    maxDistance: 520,
+    pierce: 1,
+    hitKeys: new Set()
+  });
+  player.spellCooldowns.blueRay = 0.72;
+  playSound("magic");
+  vibrate(18);
+}
+
+function spawnPlayerProjectile(config) {
+  playerProjectiles.push({
+    pierce: 0,
+    damageType: "fisico",
+    hitKeys: new Set(),
+    ...config
+  });
 }
 
 function dash() {
@@ -1621,6 +2368,37 @@ function dash() {
   }
 }
 
+function dodgeDash() {
+  if (gameOver || dialogOpen || inventoryOpen || shopOpen || pauseOpen || dodgeCooldownTimer > 0) return;
+
+  let vector = directionVector(player.direction);
+  if (isMobile && joystick.strength > 0.08) {
+    vector = { x: joystick.x, y: joystick.y };
+    if (Math.abs(vector.x) > Math.abs(vector.y)) player.direction = vector.x >= 0 ? "right" : "left";
+    else player.direction = vector.y >= 0 ? "down" : "up";
+  } else {
+    updateDirectionFromAim();
+    vector = directionVector(player.direction);
+  }
+  let moved = 0;
+  for (let i = 0; i < 7; i++) {
+    const nextX = player.x + vector.x * 10;
+    const nextY = player.y + vector.y * 10;
+    if (!canMoveTo(nextX, nextY)) break;
+    dashTrails.push({ x: player.x, y: player.y, timer: 0.18, direction: player.direction });
+    player.x = nextX;
+    player.y = nextY;
+    moved += 10;
+  }
+
+  if (moved > 0) {
+    playerInvulnerableTimer = Math.max(playerInvulnerableTimer, 0.28);
+    dodgeCooldownTimer = 0.55;
+    playSound("dash");
+    vibrate(16);
+  }
+}
+
 function shockwave() {
   if (!canUsePower("shockwave", spellCosts.shockwave)) return;
 
@@ -1636,13 +2414,14 @@ function shockwave() {
       const enemyCenterY = obj.y + obj.height / 2;
       const distance = Math.hypot(enemyCenterX - centerX, enemyCenterY - centerY);
       if (distance <= radius) {
-        damageEnemy(obj, 1, centerX, centerY, 260);
+        damageEnemy(obj, 1, centerX, centerY, 260, "magico");
       }
     }
   }
 
   player.spellCooldowns.shockwave = 2.6;
   playSound("shockwave");
+  vibrate([22, 30, 22]);
 }
 
 function quickHeal() {
@@ -1660,6 +2439,7 @@ function quickHeal() {
   spawnFloatingText(`+${healed}`, player.x + 8, player.y - 12, "#7bdb73");
   player.spellCooldowns.heal = 3.0;
   playSound("heal");
+  vibrate(18);
 }
 
 function updateProjectiles(delta) {
@@ -1670,6 +2450,18 @@ function updateProjectiles(delta) {
     obj.x += moveX;
     obj.y += moveY;
     obj.distance += Math.hypot(moveX, moveY);
+
+    if (currentScene === "village" && projectileTouchesWater(obj)) {
+      if (obj.type === "fireball" || obj.type === "fire") {
+        spawnFloatingText("pshh", obj.x, obj.y, "#55e8ff");
+        projectiles.splice(i, 1);
+        continue;
+      }
+      if (obj.type === "arrow") {
+        obj.vx *= 0.985;
+        obj.vy *= 0.985;
+      }
+    }
 
     if (obj.distance > obj.maxDistance || projectileHitsObstacle(obj)) {
       projectiles.splice(i, 1);
@@ -1684,8 +2476,16 @@ function updateProjectiles(delta) {
     ));
 
     if (target) {
-      damageEnemy(target, obj.damage, obj.x, obj.y, 210);
-      projectiles.splice(i, 1);
+      const targetKey = getSaveObjectKey(target);
+      if (!obj.hitKeys?.has(targetKey)) {
+        damageEnemy(target, obj.damage, obj.x, obj.y, 210, obj.damageType);
+        obj.hitKeys?.add(targetKey);
+        if (obj.pierce > 0) {
+          obj.pierce -= 1;
+        } else {
+          projectiles.splice(i, 1);
+        }
+      }
     }
   }
 }
@@ -1714,6 +2514,18 @@ function updateEnemyProjectiles(delta) {
     obj.x += obj.vx * delta;
     obj.y += obj.vy * delta;
 
+    if (currentScene === "village" && projectileTouchesWater(obj)) {
+      if (obj.type === "fire") {
+        spawnFloatingText("pshh", obj.x, obj.y, "#55e8ff");
+        enemyProjectiles.splice(i, 1);
+        continue;
+      }
+      if (obj.type === "arrow") {
+        obj.vx *= 0.985;
+        obj.vy *= 0.985;
+      }
+    }
+
     if (obj.timer <= 0 || projectileHitsObstacle(obj)) {
       enemyProjectiles.splice(i, 1);
       continue;
@@ -1731,14 +2543,21 @@ function projectileHitsObstacle(obj) {
     return true;
   }
 
-  if (hitsWater(obj)) return true;
+  if (currentScene !== "village" && hitsWater(obj)) return true;
   return colliders.some((collider) => isColliderActive(collider) && rectsOverlap(obj, collider));
 }
 
-function damageEnemy(obj, amount, sourceX, sourceY, knockbackPower = 170) {
+function projectileTouchesWater(obj) {
+  return isPointInVillageWater(obj.x + obj.width / 2, obj.y + obj.height / 2);
+}
+
+function damageEnemy(obj, amount, sourceX, sourceY, knockbackPower = 170, damageType = "fisico") {
   if (!obj.alive || obj.invulnerableTimer > 0) return false;
 
-  const damage = Math.max(1, amount);
+  const critical = Math.random() < player.critChance;
+  const resistance = obj.resistances?.[damageType] ?? 1;
+  const rawDamage = (critical ? amount * 2 : amount) * resistance - (obj.defense || 0);
+  const damage = Math.max(1, Math.round(rawDamage));
   obj.hp -= damage;
   obj.invulnerableTimer = 0.28;
 
@@ -1750,7 +2569,7 @@ function damageEnemy(obj, amount, sourceX, sourceY, knockbackPower = 170) {
   obj.knockbackX = (dx / length) * knockbackPower;
   obj.knockbackY = (dy / length) * knockbackPower;
 
-  spawnFloatingText(`-${damage}`, obj.x + obj.width / 2, obj.y - 8, "#fff264");
+  spawnFloatingText(critical ? `CRITICO -${damage}` : `-${damage}`, obj.x + obj.width / 2, obj.y - 8, critical ? "#ff4f62" : "#fff264");
   playSound("hitEnemy");
   hitstopTimer = 0.055;
 
@@ -1764,7 +2583,7 @@ function defeatEnemy(obj) {
   spawnFloatingText(`+${obj.coinReward} moedas`, obj.x, obj.y - 18, "#fff264");
   playSound(obj.boss ? "bossDown" : "enemyDown");
 
-  if (obj.kind === "slime" || obj.kind === "slimeVermelho") {
+  if (["slime", "slimeVerde", "slimeVermelho", "aranha", "goblin", "morcego"].includes(obj.kind)) {
     questBook.forestMonstersDefeated = Math.min(
       questBook.forestMonstersGoal,
       questBook.forestMonstersDefeated + 1
@@ -1773,9 +2592,10 @@ function defeatEnemy(obj) {
 
   if (obj.boss) {
     questBook.bossDefeated = true;
-    inventory.espadas += 1;
+    questBook.defeatedBosses[obj.kind] = true;
     inventory.moedas += 20;
     spawnFloatingText("Item raro!", obj.x, obj.y - 34, "#55e8ff");
+    vibrate([40, 60, 60]);
   }
 
   spawnEnemyDrops(obj);
@@ -1784,14 +2604,164 @@ function defeatEnemy(obj) {
 }
 
 function spawnEnemyDrops(obj) {
-  if (Math.random() < obj.dropTable.potion) {
-    villageObjects.push(collectible(Math.floor(obj.x / TILE), Math.floor(obj.y / TILE), "pocao"));
+  const dropTable = obj.dropTable || {};
+  const centerX = obj.x + obj.width / 2 - 8;
+  const centerY = obj.y + obj.height / 2 - 8;
+  const scatter = (index) => ({
+    x: centerX + ((index % 3) - 1) * 16,
+    y: centerY + (Math.floor(index / 3) - 1) * 14
+  });
+
+  let slot = 0;
+  const coinAmount = Math.max(1, Math.ceil(obj.coinReward / 3));
+  if (Math.random() < (dropTable.coin ?? 0.75)) {
+    const pos = scatter(slot++);
+    lootItems.push(lootItem(pos.x, pos.y, "moeda", coinAmount));
   }
 
-  if (Math.random() < obj.dropTable.powerUp) {
+  if (Math.random() < (dropTable.potion ?? 0.1)) {
+    const pos = scatter(slot++);
+    lootItems.push(lootItem(pos.x, pos.y, "pocao", 1));
+  }
+
+  if (Math.random() < (dropTable.loot ?? 0.15)) {
+    const kind = chooseLootKind(obj);
+    const pos = scatter(slot++);
+    lootItems.push(lootItem(pos.x, pos.y, kind, kind === "flechas" ? 4 : 1));
+  }
+
+  if (obj.boss && obj.bossItem) {
+    const pos = scatter(slot++);
+    lootItems.push(lootItem(pos.x, pos.y, "bossItem", 1, obj.bossItem));
+  }
+
+  if (Math.random() < (dropTable.powerUp ?? 0.1)) {
     const kinds = ["speed", "force", "shield", "regen", "mana"];
     const kind = kinds[Math.floor(Math.random() * kinds.length)];
     powerUps.push(powerUp(Math.floor(obj.x / TILE), Math.floor(obj.y / TILE), kind, true));
+  }
+}
+
+function chooseLootKind(obj) {
+  if (obj.kind === "arqueiroGoblin") return "flechas";
+  if (obj.kind === "magoSombrio" || obj.kind === "bruxoSombrio") return "manaOrbe";
+  if (obj.kind === "golemPedra" || obj.kind === "golemAncestral") return "fragmento";
+  if (obj.kind === "peixeHostil" || obj.kind === "serpenteLago") return "fragmentoAzul";
+  if (Math.random() < 0.06) return "chaveRara";
+  return Math.random() < 0.5 ? "fragmento" : "flechas";
+}
+
+function lootItem(x, y, kind, amount = 1, itemName = "") {
+  return {
+    type: "loot",
+    kind,
+    itemName,
+    amount,
+    x,
+    y,
+    width: 16,
+    height: 16,
+    timer: 0,
+    collected: false
+  };
+}
+
+function updateLoot(delta) {
+  if (currentScene !== "village") return;
+
+  const playerRect = getPlayerRect();
+  for (let i = lootItems.length - 1; i >= 0; i--) {
+    const obj = lootItems[i];
+    obj.timer += delta;
+    if (!rectsOverlap(playerRect, obj)) continue;
+    collectLoot(obj);
+    lootItems.splice(i, 1);
+  }
+}
+
+function collectLoot(obj) {
+  const amount = obj.amount || 1;
+
+  if (obj.kind === "moeda") {
+    inventory.moedas += amount;
+    playSound("coin");
+    spawnFloatingText(`+${amount} moedas`, obj.x, obj.y - 8, "#fff264");
+  } else if (obj.kind === "pocao") {
+    inventory.pocoes += amount;
+    playSound("powerup");
+    spawnFloatingText("+pocao", obj.x, obj.y - 8, "#d24c63");
+  } else if (obj.kind === "flechas") {
+    inventory.flechas += amount;
+    playSound("powerup");
+    spawnFloatingText(`+${amount} flechas`, obj.x, obj.y - 8, "#fff3d6");
+  } else if (obj.kind === "manaOrbe") {
+    inventory.manaOrbes += amount;
+    player.mana = Math.min(player.maxMana, player.mana + 2);
+    playSound("magic");
+    spawnFloatingText("+mana", obj.x, obj.y - 8, "#55e8ff");
+  } else if (obj.kind === "chaveRara") {
+    inventory.chavesRaras += amount;
+    playSound("chest");
+    spawnFloatingText("Chave rara!", obj.x, obj.y - 8, "#fff264");
+  } else if (obj.kind === "bossItem") {
+    if (!inventory.itensBoss.includes(obj.itemName)) inventory.itensBoss.push(obj.itemName);
+    playSound("chest");
+    spawnFloatingText(obj.itemName, obj.x, obj.y - 8, "#55e8ff");
+  } else {
+    inventory.fragmentos += amount;
+    playSound("powerup");
+    spawnFloatingText(`+${amount} fragmento`, obj.x, obj.y - 8, "#c7ccd4");
+  }
+
+  vibrate(obj.kind === "bossItem" || obj.kind === "chaveRara" ? [18, 35, 18] : 12);
+  updateHud();
+  renderInventory();
+}
+
+function spawnHazardZone(type, x, y, radius = 28, timer = 2.2, damage = 1) {
+  hazardZones.push({
+    type,
+    x,
+    y,
+    radius,
+    timer,
+    maxTimer: timer,
+    damage,
+    tick: 0
+  });
+}
+
+function updateHazards(delta) {
+  if (currentScene !== "village") {
+    hazardZones.length = 0;
+    return;
+  }
+
+  const playerCenterX = player.x + player.width / 2;
+  const playerCenterY = player.y + player.height / 2;
+
+  for (let i = hazardZones.length - 1; i >= 0; i--) {
+    const obj = hazardZones[i];
+    obj.timer -= delta;
+    obj.tick -= delta;
+
+    if (obj.timer <= 0) {
+      hazardZones.splice(i, 1);
+      continue;
+    }
+
+    const distance = Math.hypot(playerCenterX - obj.x, playerCenterY - obj.y);
+    if (distance <= obj.radius) {
+      if (obj.type === "web" && player.moving) {
+        player.animTimer += delta * 0.5;
+      }
+
+      if (obj.tick <= 0 && damageCooldown <= 0) {
+        takeDamage(obj.damage, obj.x, obj.y);
+        damageCooldown = obj.type === "whirlpool" ? 0.9 : 1.2;
+        obj.tick = 1.1;
+      }
+    }
   }
 }
 
@@ -1827,12 +2797,28 @@ function updateVisualEffects(delta) {
 
 function drawProjectiles() {
   for (const obj of projectiles) {
-    ctx.fillStyle = "rgba(255, 90, 58, 0.32)";
+    const color = getPlayerProjectileColor(obj.type);
+    ctx.fillStyle = color.glow;
     ctx.fillRect(obj.x - 5, obj.y - 5, obj.width + 10, obj.height + 10);
-    ctx.fillStyle = "#ff4f62";
+
+    if (obj.type === "arrow") {
+      ctx.save();
+      ctx.translate(obj.x + obj.width / 2, obj.y + obj.height / 2);
+      ctx.rotate(Math.atan2(obj.vy, obj.vx));
+      ctx.fillStyle = "#273052";
+      ctx.fillRect(-8, -2, 16, 4);
+      ctx.fillStyle = "#f0b276";
+      ctx.fillRect(-6, -1, 11, 2);
+      ctx.fillStyle = "#fff3d6";
+      ctx.fillRect(4, -3, 4, 6);
+      ctx.restore();
+      continue;
+    }
+
+    ctx.fillStyle = color.main;
     ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
-    ctx.fillStyle = "#fff264";
-    ctx.fillRect(obj.x + 3, obj.y + 3, obj.width - 6, obj.height - 6);
+    ctx.fillStyle = color.core;
+    ctx.fillRect(obj.x + 3, obj.y + 3, Math.max(2, obj.width - 6), Math.max(2, obj.height - 6));
   }
 
   for (const obj of enemyProjectiles) {
@@ -1845,11 +2831,35 @@ function drawProjectiles() {
       continue;
     }
 
-    ctx.fillStyle = "rgba(180, 109, 255, 0.35)";
+    const color = getEnemyProjectileColor(obj.type);
+    ctx.fillStyle = color.glow;
     ctx.fillRect(obj.x - 4, obj.y - 4, obj.width + 8, obj.height + 8);
-    ctx.fillStyle = obj.type === "bossBolt" ? "#ff4f62" : "#b46dff";
+    ctx.fillStyle = color.main;
     ctx.fillRect(obj.x, obj.y, obj.width, obj.height);
+    ctx.fillStyle = color.core;
+    ctx.fillRect(obj.x + 3, obj.y + 3, Math.max(2, obj.width - 6), Math.max(2, obj.height - 6));
   }
+}
+
+function getPlayerProjectileColor(type) {
+  if (type === "blueRay" || type === "blueMagic") {
+    return { glow: "rgba(85, 232, 255, 0.34)", main: "#3f8fe5", core: "#e9ffff" };
+  }
+  if (type === "arrow") {
+    return { glow: "rgba(255, 243, 214, 0.18)", main: "#f0b276", core: "#fff3d6" };
+  }
+  return { glow: "rgba(255, 90, 58, 0.32)", main: "#ff4f62", core: "#fff264" };
+}
+
+function getEnemyProjectileColor(type) {
+  if (type === "arrow") return { glow: "rgba(255, 243, 214, 0.18)", main: "#f0b276", core: "#fff3d6" };
+  if (type === "stone") return { glow: "rgba(199, 204, 212, 0.25)", main: "#8a8da2", core: "#c7ccd4" };
+  if (type === "bubble") return { glow: "rgba(85, 232, 255, 0.32)", main: "#3f8fe5", core: "#e9ffff" };
+  if (type === "fire") return { glow: "rgba(255, 79, 98, 0.35)", main: "#ff4f62", core: "#fff264" };
+  if (type === "slimeBall") return { glow: "rgba(123, 219, 115, 0.32)", main: "#7bdb73", core: "#d9ff73" };
+  if (type === "web") return { glow: "rgba(233, 255, 255, 0.22)", main: "#c8dbff", core: "#e9ffff" };
+  if (type === "bossBolt") return { glow: "rgba(255, 79, 98, 0.35)", main: "#ff4f62", core: "#fff264" };
+  return { glow: "rgba(180, 109, 255, 0.35)", main: "#b46dff", core: "#55e8ff" };
 }
 
 function drawShockwaves() {
@@ -1893,42 +2903,93 @@ function drawFloatingTexts() {
   ctx.textAlign = "start";
 }
 
+function drawAimCursor() {
+  if (!mouseAim.active || !gameStarted || currentScene !== "village") return;
+
+  ctx.strokeStyle = "rgba(255, 242, 100, 0.75)";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(mouseAim.worldX - 8, mouseAim.worldY);
+  ctx.lineTo(mouseAim.worldX + 8, mouseAim.worldY);
+  ctx.moveTo(mouseAim.worldX, mouseAim.worldY - 8);
+  ctx.lineTo(mouseAim.worldX, mouseAim.worldY + 8);
+  ctx.stroke();
+
+  ctx.strokeStyle = "rgba(39, 48, 82, 0.85)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.arc(mouseAim.worldX, mouseAim.worldY, 10, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+function drawMobileTargetMark() {
+  if (!isMobile || currentScene !== "village") return;
+  const target = currentAutoAimTarget || getNearestEnemyToPlayer(300);
+  if (!target || !target.alive) return;
+
+  const cx = target.x + target.width / 2;
+  const cy = target.y + target.height / 2;
+  const pulse = 4 + Math.sin(performance.now() / 120) * 2;
+  ctx.strokeStyle = "rgba(255, 242, 100, 0.9)";
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.arc(cx, cy, Math.max(target.width, target.height) / 2 + pulse, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.fillStyle = "rgba(255, 242, 100, 0.85)";
+  ctx.fillRect(cx - 2, target.y - 12, 4, 7);
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
 function draw() {
+  ensureCanvasSize();
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.save();
   ctx.translate(-Math.round(camera.x), -Math.round(camera.y));
 
   drawMap();
   if (currentScene === "crystalDimension") drawDimensionAmbient();
+  drawHazards();
 
   const visibleObjects = objects.filter((obj) => {
+    if (!isOnCamera(obj, 96)) return false;
     if (obj.type === "crystal" || obj.type === "collectible") return !obj.collected;
     if (obj.type === "enemy") return obj.alive;
     if (obj.type === "dimensionBlocker" && dimensionQuest.bridgeOpen) return false;
     if (obj.type === "rareChest") return questBook.bossDefeated && !questBook.bossChestOpened;
     return obj.type !== "block";
   });
-  const visiblePowerUps = currentScene === "village" ? powerUps.filter((obj) => !obj.collected) : [];
-  const drawables = [...visibleObjects, ...visiblePowerUps, { type: "player", y: player.y, height: player.height }];
+  const visiblePowerUps = currentScene === "village" ? powerUps.filter((obj) => !obj.collected && isOnCamera(obj, 80)) : [];
+  const visibleLoot = currentScene === "village" ? lootItems.filter((obj) => !obj.collected && isOnCamera(obj, 80)) : [];
+  const drawables = [...visibleObjects, ...visiblePowerUps, ...visibleLoot, { type: "player", y: player.y, height: player.height }];
   drawables.sort((a, b) => (a.y + a.height) - (b.y + b.height));
 
   for (const item of drawables) {
     if (item.type === "player") drawPlayer();
     else drawObject(item);
   }
+  drawMobileTargetMark();
   drawAttack();
   drawProjectiles();
   drawShockwaves();
   drawDashTrails();
   drawHealBursts();
   drawFloatingTexts();
+  drawAimCursor();
 
   ctx.restore();
   drawMiniMap();
+}
+
+function isOnCamera(obj, margin = 64) {
+  return (
+    obj.x + obj.width >= camera.x - margin &&
+    obj.x <= camera.x + canvas.width + margin &&
+    obj.y + obj.height >= camera.y - margin &&
+    obj.y <= camera.y + canvas.height + margin
+  );
 }
 
 function drawMap() {
@@ -2074,9 +3135,12 @@ function drawDimensionAmbient() {
   ctx.fillStyle = `rgba(141, 75, 224, ${alpha})`;
   ctx.fillRect(camera.x, camera.y, canvas.width, canvas.height);
 
-  for (const particle of dimensionParticles) {
+  const particleStep = isMobile ? 2 : 1;
+  for (let i = 0; i < dimensionParticles.length; i += particleStep) {
+    const particle = dimensionParticles[i];
     const px = particle.x + Math.sin(time * particle.speed + particle.phase) * 14;
     const py = particle.y + Math.cos(time * particle.speed + particle.phase) * 10;
+    if (px < camera.x - 8 || px > camera.x + canvas.width + 8 || py < camera.y - 8 || py > camera.y + canvas.height + 8) continue;
     ctx.fillStyle = particle.size === 2 ? "rgba(129, 239, 255, 0.55)" : "rgba(255, 242, 100, 0.45)";
     ctx.fillRect(px, py, particle.size, particle.size);
   }
@@ -2138,6 +3202,7 @@ function drawObject(obj) {
   if (obj.type === "rock") drawRock(obj);
   if (obj.type === "crystal") drawCrystal(obj);
   if (obj.type === "collectible") drawCollectible(obj);
+  if (obj.type === "loot") drawLootItem(obj);
   if (obj.type === "powerUp") drawPowerUp(obj);
   if (obj.type === "enemy") drawEnemy(obj);
   if (obj.type === "npc") drawNpc(obj);
@@ -2624,6 +3689,97 @@ function drawCollectible(obj) {
   }
 }
 
+function drawLootItem(obj) {
+  const x = obj.x;
+  const y = obj.y + Math.sin(performance.now() / 190 + obj.x) * 2;
+
+  if (obj.kind === "bossItem") {
+    ctx.fillStyle = "rgba(85, 232, 255, 0.35)";
+    ctx.fillRect(x - 3, y - 3, 22, 22);
+    pixelRect(x + 2, y + 2, 12, 12, "#55e8ff");
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x + 6, y + 5, 4, 4);
+    return;
+  }
+
+  if (obj.kind === "fragmento" || obj.kind === "fragmentoAzul") {
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 2, y + 4, 12, 10);
+    ctx.fillStyle = obj.kind === "fragmentoAzul" ? "#55e8ff" : "#c7ccd4";
+    ctx.fillRect(x + 4, y + 5, 8, 7);
+    ctx.fillStyle = "#e9ffff";
+    ctx.fillRect(x + 7, y + 4, 4, 3);
+    return;
+  }
+
+  if (obj.kind === "flechas") {
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 2, y + 7, 14, 4);
+    ctx.fillRect(x + 10, y + 4, 4, 10);
+    ctx.fillStyle = "#f0b276";
+    ctx.fillRect(x + 3, y + 8, 11, 2);
+    ctx.fillStyle = "#fff3d6";
+    ctx.fillRect(x + 12, y + 5, 3, 3);
+    return;
+  }
+
+  if (obj.kind === "manaOrbe") {
+    ctx.fillStyle = "rgba(180, 109, 255, 0.3)";
+    ctx.fillRect(x - 2, y - 2, 20, 20);
+    pixelRect(x + 3, y + 3, 10, 10, "#b46dff");
+    ctx.fillStyle = "#55e8ff";
+    ctx.fillRect(x + 7, y + 5, 3, 3);
+    return;
+  }
+
+  if (obj.kind === "chaveRara") {
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 1, y + 5, 16, 6);
+    ctx.fillStyle = "#55e8ff";
+    ctx.fillRect(x + 3, y + 6, 9, 4);
+    ctx.fillRect(x + 11, y + 9, 6, 3);
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x + 5, y + 7, 3, 2);
+    return;
+  }
+
+  drawCollectible({
+    item: obj.kind === "moeda" ? "moeda" : "pocao",
+    x,
+    y
+  });
+}
+
+function drawHazards() {
+  for (const obj of hazardZones) {
+    const alpha = Math.max(0, obj.timer / obj.maxTimer);
+    if (obj.type === "web") {
+      ctx.strokeStyle = `rgba(233, 255, 255, ${0.35 * alpha})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(obj.x - obj.radius, obj.y);
+      ctx.lineTo(obj.x + obj.radius, obj.y);
+      ctx.moveTo(obj.x, obj.y - obj.radius);
+      ctx.lineTo(obj.x, obj.y + obj.radius);
+      ctx.stroke();
+    } else if (obj.type === "whirlpool") {
+      ctx.strokeStyle = `rgba(85, 232, 255, ${0.55 * alpha})`;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(obj.x, obj.y, obj.radius * (1 - alpha * 0.25), performance.now() / 300, Math.PI * 1.6 + performance.now() / 300);
+      ctx.stroke();
+    } else {
+      ctx.fillStyle = `rgba(255, 79, 98, ${0.18 * alpha})`;
+      ctx.beginPath();
+      ctx.arc(obj.x, obj.y, obj.radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+}
+
 function drawPowerUp(obj) {
   const x = obj.x;
   const y = obj.y + Math.sin(performance.now() / 210 + obj.x) * 2;
@@ -2636,6 +3792,7 @@ function drawPowerUp(obj) {
     regen: "#7bdb73",
     mana: "#b46dff"
   };
+  colors.waterBreathing = "#7bd5ff";
 
   ctx.fillStyle = `rgba(255, 255, 255, ${glow})`;
   ctx.fillRect(x - 5, y - 5, 28, 28);
@@ -2677,6 +3834,16 @@ function drawPowerUp(obj) {
     return;
   }
 
+  if (obj.kind === "waterBreathing") {
+    ctx.fillStyle = colors.waterBreathing;
+    ctx.fillRect(x + 4, y + 8, 12, 8);
+    ctx.fillRect(x + 7, y + 4, 6, 6);
+    ctx.fillStyle = "#e9ffff";
+    ctx.fillRect(x + 5, y + 2, 4, 4);
+    ctx.fillRect(x + 13, y, 3, 3);
+    return;
+  }
+
   ctx.fillStyle = "#273052";
   ctx.fillRect(x + 2, y + 2, 16, 16);
   ctx.fillStyle = colors.mana;
@@ -2689,9 +3856,15 @@ function drawEnemy(obj) {
   const x = obj.x;
   const y = obj.y;
   const blinking = obj.invulnerableTimer > 0 && Math.floor(performance.now() / 70) % 2 === 0;
+  const phaseGlow = obj.boss && obj.phase === 2;
 
   ctx.save();
   if (blinking) ctx.globalAlpha = 0.45;
+
+  if (phaseGlow) {
+    ctx.fillStyle = "rgba(255, 79, 98, 0.22)";
+    ctx.fillRect(x - 6, y - 8, obj.width + 12, obj.height + 14);
+  }
 
   if (obj.kind === "morcego") {
     ctx.fillStyle = "#273052";
@@ -2703,42 +3876,109 @@ function drawEnemy(obj) {
     ctx.fillStyle = "#fff264";
     ctx.fillRect(x + 10, y + 7, 2, 2);
     ctx.fillRect(x + 14, y + 7, 2, 2);
-  } else if (obj.kind === "slimeVermelho") {
+  } else if (obj.kind === "slimeVermelho" || obj.kind === "reiSlime" || obj.kind === "slimeVerde" || obj.kind === "slimeAzul" || obj.kind === "slime") {
+    const slimeColor = obj.kind === "slimeVermelho" ? "#ff4f62" :
+      obj.kind === "slimeAzul" ? "#55e8ff" :
+        obj.kind === "reiSlime" ? "#7bdb73" : "#55e8ff";
     ctx.fillStyle = "rgba(39, 48, 82, 0.25)";
-    ctx.fillRect(x + 2, y + 18, 22, 5);
+    ctx.fillRect(x + 2, y + obj.height - 4, obj.width - 2, 5);
     ctx.fillStyle = "#273052";
-    ctx.fillRect(x + 1, y + 5, 22, 16);
-    ctx.fillStyle = "#ff4f62";
-    ctx.fillRect(x + 3, y + 7, 18, 12);
+    ctx.fillRect(x + 1, y + 5, obj.width - 2, obj.height - 5);
+    ctx.fillStyle = slimeColor;
+    ctx.fillRect(x + 3, y + 7, obj.width - 6, obj.height - 9);
     ctx.fillStyle = "#fff264";
     ctx.fillRect(x + 6, y + 11, 2, 2);
-    ctx.fillRect(x + 16, y + 11, 2, 2);
-  } else if (obj.kind === "golem") {
+    ctx.fillRect(x + obj.width - 8, y + 11, 2, 2);
+    if (obj.kind === "reiSlime") {
+      ctx.fillStyle = "#fff264";
+      ctx.fillRect(x + obj.width / 2 - 7, y, 14, 5);
+      ctx.fillRect(x + obj.width / 2 - 4, y - 4, 3, 5);
+      ctx.fillRect(x + obj.width / 2 + 3, y - 4, 3, 5);
+    }
+  } else if (obj.kind === "golem" || obj.kind === "golemPedra" || obj.kind === "golemAncestral") {
     ctx.fillStyle = "rgba(39, 48, 82, 0.25)";
-    ctx.fillRect(x + 1, y + 26, 30, 6);
-    pixelRect(x + 4, y + 12, 22, 18, "#8a8da2");
-    pixelRect(x + 7, y + 2, 16, 13, "#76708e");
+    ctx.fillRect(x + 1, y + obj.height - 4, obj.width, 6);
+    pixelRect(x + 4, y + Math.max(10, obj.height - 20), obj.width - 8, 18, "#8a8da2");
+    pixelRect(x + 7, y + 2, obj.width - 14, 14, "#76708e");
     ctx.fillStyle = "#55e8ff";
     ctx.fillRect(x + 9, y + 8, 3, 3);
-    ctx.fillRect(x + 18, y + 8, 3, 3);
-  } else if (obj.kind === "mago") {
-    pixelRect(x + 4, y + 9, 16, 20, "#4b386f");
+    ctx.fillRect(x + obj.width - 13, y + 8, 3, 3);
+  } else if (obj.kind === "mago" || obj.kind === "magoSombrio" || obj.kind === "bruxoSombrio") {
+    pixelRect(x + 4, y + 9, obj.width - 8, obj.height - 9, obj.kind === "bruxoSombrio" ? "#6d3d8f" : "#4b386f");
     ctx.fillStyle = "#273052";
-    ctx.fillRect(x + 2, y + 4, 20, 8);
+    ctx.fillRect(x + 2, y + 4, obj.width - 4, 8);
     ctx.fillStyle = "#b46dff";
-    ctx.fillRect(x + 8, y + 1, 8, 8);
+    ctx.fillRect(x + obj.width / 2 - 4, y + 1, 8, 8);
     ctx.fillStyle = "#55e8ff";
-    ctx.fillRect(x + 10, y + 15, 4, 4);
-  } else if (obj.kind === "guardiao") {
+    ctx.fillRect(x + obj.width / 2 - 2, y + 15, 4, 4);
+  } else if (obj.kind === "guardiao" || obj.kind === "miniGuardiao") {
     ctx.fillStyle = "rgba(39, 48, 82, 0.3)";
-    ctx.fillRect(x + 2, y + 37, 38, 7);
-    pixelRect(x + 4, y + 16, 30, 24, "#7c6b8f", "#1a1f3d");
-    pixelRect(x + 9, y + 1, 20, 19, "#8a8da2", "#1a1f3d");
+    ctx.fillRect(x + 2, y + obj.height - 5, obj.width - 2, 7);
+    pixelRect(x + 4, y + 16, obj.width - 8, obj.height - 17, "#7c6b8f", "#1a1f3d");
+    pixelRect(x + 9, y + 1, obj.width - 18, 19, "#8a8da2", "#1a1f3d");
     ctx.fillStyle = "#ff4f62";
     ctx.fillRect(x + 13, y + 9, 4, 4);
-    ctx.fillRect(x + 23, y + 9, 4, 4);
+    ctx.fillRect(x + obj.width - 17, y + 9, 4, 4);
     ctx.fillStyle = "#fff264";
-    ctx.fillRect(x + 17, y + 27, 7, 7);
+    ctx.fillRect(x + obj.width / 2 - 3, y + obj.height - 15, 7, 7);
+  } else if (obj.kind === "aranha" || obj.kind === "aranhaRainha") {
+    ctx.fillStyle = "rgba(39, 48, 82, 0.25)";
+    ctx.fillRect(x + 2, y + obj.height - 4, obj.width - 2, 5);
+    ctx.fillStyle = "#273052";
+    for (let i = 0; i < 4; i++) {
+      ctx.fillRect(x + 2 + i * 6, y + 6, 4, obj.height - 6);
+      ctx.fillRect(x + 1 + i * 7, y + obj.height - 8, 6, 3);
+    }
+    ctx.fillStyle = obj.kind === "aranhaRainha" ? "#d24c63" : "#6d5c75";
+    ctx.fillRect(x + 6, y + 7, obj.width - 12, obj.height - 9);
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x + 10, y + 11, 2, 2);
+    ctx.fillRect(x + obj.width - 12, y + 11, 2, 2);
+  } else if (obj.kind === "goblin" || obj.kind === "arqueiroGoblin") {
+    pixelRect(x + 4, y + 11, obj.width - 8, obj.height - 10, obj.kind === "arqueiroGoblin" ? "#7bdb73" : "#a45d3d");
+    pixelRect(x + 5, y + 2, obj.width - 10, 13, "#7bdb73");
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 2, y + 7, 5, 3);
+    ctx.fillRect(x + obj.width - 7, y + 7, 5, 3);
+    ctx.fillRect(x + 8, y + 8, 2, 2);
+    ctx.fillRect(x + obj.width - 11, y + 8, 2, 2);
+    if (obj.kind === "arqueiroGoblin") {
+      ctx.fillStyle = "#f0b276";
+      ctx.fillRect(x + obj.width - 4, y + 9, 3, 17);
+    }
+  } else if (obj.kind === "fantasma") {
+    ctx.globalAlpha = blinking ? 0.35 : 0.78;
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 2, y + 3, obj.width - 4, obj.height - 4);
+    ctx.fillStyle = "#e9ffff";
+    ctx.fillRect(x + 4, y + 5, obj.width - 8, obj.height - 8);
+    ctx.fillStyle = "#b46dff";
+    ctx.fillRect(x + 8, y + 12, 3, 3);
+    ctx.fillRect(x + obj.width - 11, y + 12, 3, 3);
+    ctx.fillRect(x + 5, y + obj.height - 8, 4, 5);
+    ctx.fillRect(x + 14, y + obj.height - 8, 4, 5);
+  } else if (obj.kind === "peixeHostil" || obj.kind === "serpenteLago") {
+    ctx.fillStyle = "rgba(39, 48, 82, 0.25)";
+    ctx.fillRect(x + 2, y + obj.height - 2, obj.width - 4, 4);
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 1, y + 4, obj.width - 6, obj.height - 6);
+    ctx.fillRect(x + obj.width - 9, y + 8, 8, 8);
+    ctx.fillStyle = obj.kind === "serpenteLago" ? "#3f8fe5" : "#55e8ff";
+    ctx.fillRect(x + 3, y + 6, obj.width - 10, obj.height - 10);
+    ctx.fillRect(x + obj.width - 7, y + 10, 5, 4);
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x + 8, y + 8, 2, 2);
+  } else if (obj.kind === "miniDragao") {
+    ctx.fillStyle = "rgba(39, 48, 82, 0.25)";
+    ctx.fillRect(x + 3, y + obj.height - 4, obj.width - 5, 5);
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 3, y + 8, obj.width - 8, obj.height - 8);
+    ctx.fillRect(x + obj.width - 8, y + 4, 8, 11);
+    ctx.fillRect(x + 2, y + 4, 8, 8);
+    ctx.fillStyle = "#ff4f62";
+    ctx.fillRect(x + 5, y + 10, obj.width - 13, obj.height - 12);
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x + obj.width - 6, y + 7, 2, 2);
   } else {
     ctx.fillStyle = "rgba(39, 48, 82, 0.25)";
     ctx.fillRect(x + 2, y + 17, 20, 5);
@@ -2755,27 +3995,39 @@ function drawEnemy(obj) {
   ctx.fillRect(x, y - 6, obj.width, 4);
   ctx.fillStyle = "#d24c63";
   ctx.fillRect(x, y - 6, Math.max(0, obj.width * (obj.hp / obj.maxHp)), 4);
+  if (obj.boss) {
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x, y - 12, Math.max(0, obj.width * (obj.hp / obj.maxHp)), 3);
+  }
   ctx.restore();
 }
 
 function drawAttack() {
-  if (attackTimer <= 0) return;
-  const area = getAttackRect(attackDirection);
+  if (attackTimer <= 0 || !currentMeleeAttack) return;
+  const centerX = player.x + player.width / 2;
+  const centerY = player.y + player.height / 2;
   const preparing = attackWindupTimer > 0;
-  ctx.fillStyle = preparing ? "rgba(255, 242, 100, 0.18)" : "rgba(255, 242, 100, 0.45)";
-  ctx.fillRect(area.x, area.y, area.width, area.height);
-  ctx.strokeStyle = preparing ? "#55e8ff" : "#fff264";
-  ctx.lineWidth = preparing ? 1 : 3;
-  ctx.strokeRect(area.x, area.y, area.width, area.height);
 
-  if (!preparing) {
-    ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
-    if (attackDirection === "left" || attackDirection === "right") {
-      ctx.fillRect(area.x, area.y + area.height / 2 - 2, area.width, 4);
-    } else {
-      ctx.fillRect(area.x + area.width / 2 - 2, area.y, 4, area.height);
-    }
+  ctx.save();
+  ctx.translate(centerX, centerY);
+  ctx.rotate(currentMeleeAttack.angle);
+  ctx.strokeStyle = preparing ? "#55e8ff" : "#fff264";
+  ctx.fillStyle = preparing ? "rgba(85, 232, 255, 0.12)" : "rgba(255, 242, 100, 0.32)";
+  ctx.lineWidth = preparing ? 2 : 4;
+
+  if (currentMeleeAttack.weaponKey === "spear") {
+    ctx.fillRect(8, -5, currentMeleeAttack.range, 10);
+    ctx.strokeRect(8, -5, currentMeleeAttack.range, 10);
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, currentMeleeAttack.range, -currentMeleeAttack.arc / 2, currentMeleeAttack.arc / 2);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
   }
+
+  ctx.restore();
 }
 
 function drawNpc(obj) {
@@ -2806,6 +4058,14 @@ function drawPlayer() {
 
   ctx.save();
   if (blinking) ctx.globalAlpha = 0.45;
+
+  if (player.isSwimming) {
+    ctx.strokeStyle = "rgba(233, 255, 255, 0.75)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(x + 12, y + 25, 18, 7, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
 
   ctx.fillStyle = "rgba(39, 48, 82, 0.25)";
   ctx.fillRect(x + 3, y + 25, 22, 5);
@@ -3073,6 +4333,7 @@ function collectWorldItems() {
       inventory.cartas += 1;
       questBook.letterPicked = true;
     }
+    vibrate(12);
   }
 }
 
@@ -3087,6 +4348,7 @@ function collectPowerUps() {
     applyPowerUp(obj.kind);
     spawnFloatingText(getPowerUpName(obj.kind), obj.x - 8, obj.y - 14, "#fff264");
     playSound("powerup");
+    vibrate(16);
   }
 }
 
@@ -3095,6 +4357,7 @@ function applyPowerUp(kind) {
   if (kind === "force") activePowerUps.force = 10;
   if (kind === "shield") activePowerUps.shield = 10;
   if (kind === "regen") activePowerUps.regen = 8;
+  if (kind === "waterBreathing") activePowerUps.waterBreathing = 20;
   if (kind === "mana") player.mana = player.maxMana;
 }
 
@@ -3103,54 +4366,155 @@ function getPowerUpName(kind) {
   if (kind === "force") return "Forca";
   if (kind === "shield") return "Escudo";
   if (kind === "regen") return "Regeneracao";
+  if (kind === "waterBreathing") return "Respiracao Aquatica";
   return "Mana cheia";
 }
 
 function updateQuestProgress() {
   syncDimensionQuestState();
-  const crystalText = quest.status === "notStarted" ? "Cristais: fale com Nico" :
-    quest.status === "ready" ? "Cristais: volte ao Nico" :
-      quest.status === "done" ? "Cristais: ok" : `Cristais: ${quest.collected}/${quest.total}`;
-  const keyText = questBook.keyFound ? "Chave: ok" : "Chave: perdida";
-  const monsterText = `Monstros: ${questBook.forestMonstersDefeated}/${questBook.forestMonstersGoal}`;
-  const letterText = questBook.letterDelivered ? "Carta: ok" : questBook.letterPicked ? "Carta: entregue ao Beto" : "Carta: perdida";
-  const progress = [crystalText, keyText, monsterText, letterText];
+  questProgressEl.textContent = getCompactMissionText();
+  if (missionsOpen) renderMissionsPanel();
+}
 
-  if (dimensionQuest.entered || currentScene === "crystalDimension" || dimensionQuest.status !== "notStarted") {
-    progress.push(`Cristais ativados: ${dimensionQuest.activatedCrystals}/${dimensionQuest.totalCrystals}`);
+function getCompactMissionText() {
+  if (currentScene === "crystalDimension" || dimensionQuest.status === "active" || dimensionQuest.status === "ready") {
+    if (dimensionQuest.chestOpened) return "Dimensao: bau aberto";
+    if (dimensionQuest.bridgeOpen) return "Dimensao: abra o bau";
+    return `Cristais ativados: ${dimensionQuest.activatedCrystals}/${dimensionQuest.totalCrystals}`;
   }
 
-  questProgressEl.textContent = progress.join(" | ");
+  if (quest.status === "notStarted") return "Missao: fale com Nico";
+  if (quest.status === "active") return `Cristais: ${quest.collected}/${quest.total}`;
+  if (quest.status === "ready") return "Cristais: volte ao Nico";
+  if (!questBook.keyFound) return "Chave: perdida";
+  if (questBook.forestMonstersDefeated < questBook.forestMonstersGoal) {
+    return `Monstros: ${questBook.forestMonstersDefeated}/${questBook.forestMonstersGoal}`;
+  }
+  if (!questBook.letterDelivered) return questBook.letterPicked ? "Carta: leve ao Beto" : "Carta: perdida";
+  return "Missoes: em dia";
 }
 
 function updateHud() {
+  updateMobilePowerButtons();
   healthHud.textContent = "♥ ".repeat(player.health).trim() || "0";
   manaHud.textContent = `${Math.floor(player.mana)}/${player.maxMana}`;
   manaFill.style.width = `${clamp((player.mana / player.maxMana) * 100, 0, 100)}%`;
   coinHud.textContent = inventory.moedas;
+  playerPositionEl.textContent = getAreaName();
+  weaponHud.textContent = `Arma: ${getCurrentWeapon().name}${getCurrentWeaponKey() === "bow" ? ` (${inventory.flechas})` : ""}`;
+  if (player.isSwimming) {
+    oxygenHud.textContent = activePowerUps.waterBreathing > 0 ? "Respirando" : `${Math.ceil(player.oxygen)}/${player.maxOxygen}`;
+  } else {
+    oxygenHud.textContent = "Fora da agua";
+  }
+  oxygenFill.style.width = `${clamp((player.oxygen / player.maxOxygen) * 100, 0, 100)}%`;
+  const oxygenBox = oxygenHud.closest(".hud-oxygen-box");
+  oxygenBox?.classList.toggle("mobile-hidden", isMobile && !player.isSwimming);
+  oxygenBox?.classList.toggle("hidden", !player.isSwimming);
+  oxygenBox?.classList.toggle("is-low", player.isSwimming && player.oxygen <= 3);
   powerHud.textContent = getPowerHudText();
+  if (statusOpen) renderStatusPanel();
+
+  const activeBoss = getActiveBoss();
+  bossHud.classList.toggle("hidden", !activeBoss);
+  if (activeBoss) {
+    bossNameHud.textContent = `${getEnemyDisplayName(activeBoss.kind)}${activeBoss.phase === 2 ? " - fase 2" : ""}`;
+    bossFill.style.width = `${clamp((activeBoss.hp / activeBoss.maxHp) * 100, 0, 100)}%`;
+  }
 }
 
 function getPowerHudText() {
-  const effects = [];
-  if (activePowerUps.speed > 0) effects.push(`Velocidade: ${Math.ceil(activePowerUps.speed)}s`);
-  if (activePowerUps.force > 0) effects.push(`Forca: ${Math.ceil(activePowerUps.force)}s`);
-  if (activePowerUps.shield > 0) effects.push(`Escudo: ${Math.ceil(activePowerUps.shield)}s`);
-  if (activePowerUps.regen > 0) effects.push(`Regeneracao: ${Math.ceil(activePowerUps.regen)}s`);
-
-  const cooldowns = [
-    `Q ${formatCooldown(player.spellCooldowns.fireball)}`,
-    `R ${formatCooldown(player.spellCooldowns.dash)}`,
-    `F ${formatCooldown(player.spellCooldowns.shockwave)}`,
-    `C ${formatCooldown(player.spellCooldowns.heal)}`
-  ].join(" | ");
-  const warning = getStrongEnemyWarning();
-
-  return [warning, effects.join(" | "), cooldowns].filter(Boolean).join(" || ");
+  const cooldown = player.spellCooldowns[equippedPower] || 0;
+  const suffix = cooldown > 0 ? ` ${formatCooldown(cooldown)}` : "";
+  return `Q: ${powerNames[equippedPower] || "Poder"}${suffix}`;
 }
 
 function formatCooldown(value) {
   return value <= 0 ? "ok" : `${value.toFixed(1)}s`;
+}
+
+function renderMissionsPanel() {
+  if (!missionsList) return;
+  syncDimensionQuestState();
+  const rows = [
+    ["Cristais", quest.status === "notStarted" ? "fale com Nico" : quest.status === "ready" ? "volte ao Nico" : quest.status === "done" ? "ok" : `${quest.collected}/${quest.total}`],
+    ["Chave", questBook.keyFound ? "ok" : "perdida"],
+    ["Monstros", `${questBook.forestMonstersDefeated}/${questBook.forestMonstersGoal}`],
+    ["Carta", questBook.letterDelivered ? "ok" : questBook.letterPicked ? "levar ao Beto" : "perdida"],
+    ["Dimensao", `${dimensionQuest.activatedCrystals}/${dimensionQuest.totalCrystals} cristais`],
+    ["Bau da dimensao", dimensionQuest.chestOpened ? "aberto" : dimensionQuest.bridgeOpen ? "liberado" : "selado"]
+  ];
+  missionsList.innerHTML = rows.map(([name, value]) => `<li><span>${name}</span><strong>${value}</strong></li>`).join("");
+}
+
+function renderStatusPanel() {
+  if (!statusList) return;
+  const buffs = Object.entries(activePowerUps)
+    .filter(([, value]) => value > 0)
+    .map(([key, value]) => `${getPowerUpName(key)} ${Math.ceil(value)}s`);
+  const rows = [
+    ["Vida", `${player.health}/${player.maxHealth}`],
+    ["Mana", `${Math.floor(player.mana)}/${player.maxMana}`],
+    ["Oxigenio", player.isSwimming ? `${Math.ceil(player.oxygen)}/${player.maxOxygen}` : "fora da agua"],
+    ["Defesa", player.defense || 0],
+    ["Critico", `${Math.round((player.critChance || 0) * 100)}%`],
+    ["Arma", getCurrentWeapon().name],
+    ["Poder", powerNames[equippedPower] || "Poder"],
+    ["Buffs", buffs.length ? buffs.join(", ") : "nenhum"]
+  ];
+  statusList.innerHTML = rows.map(([name, value]) => `<li><span>${name}</span><strong>${value}</strong></li>`).join("");
+}
+
+function toggleMissionsPanel(force) {
+  missionsOpen = typeof force === "boolean" ? force : !missionsOpen;
+  missionsPanel?.classList.toggle("hidden", !missionsOpen);
+  if (missionsOpen) {
+    statusOpen = false;
+    statusPanel?.classList.add("hidden");
+    setPause(false);
+    renderMissionsPanel();
+  }
+}
+
+function toggleStatusPanel(force) {
+  statusOpen = typeof force === "boolean" ? force : !statusOpen;
+  statusPanel?.classList.toggle("hidden", !statusOpen);
+  if (statusOpen) {
+    missionsOpen = false;
+    missionsPanel?.classList.add("hidden");
+    setPause(false);
+    renderStatusPanel();
+  }
+}
+
+function closeOverlayPanels() {
+  missionsOpen = false;
+  statusOpen = false;
+  missionsPanel?.classList.add("hidden");
+  statusPanel?.classList.add("hidden");
+}
+
+function showHudToast(text, duration = 2.4) {
+  hudToastText = text || "";
+  hudToastTimer = duration;
+  let toast = document.getElementById("hudToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "hudToast";
+    toast.className = "hud-toast hidden";
+    canvas.parentElement?.appendChild(toast);
+  }
+  toast.textContent = hudToastText;
+  toast.classList.toggle("hidden", !hudToastText);
+}
+
+function updateHudToast(delta) {
+  if (hudToastTimer <= 0) return;
+  hudToastTimer = Math.max(0, hudToastTimer - delta);
+  if (hudToastTimer <= 0) {
+    const toast = document.getElementById("hudToast");
+    toast?.classList.add("hidden");
+  }
 }
 
 function getStrongEnemyWarning() {
@@ -3160,11 +4524,59 @@ function getStrongEnemyWarning() {
   const playerCenterY = player.y + player.height / 2;
   const strong = villageObjects.find((obj) => {
     if (obj.type !== "enemy" || !obj.alive) return false;
-    if (!["slimeVermelho", "golem", "mago", "guardiao"].includes(obj.kind)) return false;
+    if (!obj.boss && !["slimeVermelho", "golem", "golemPedra", "mago", "magoSombrio", "guardiao", "miniDragao"].includes(obj.kind)) return false;
     return Math.hypot(obj.x - playerCenterX, obj.y - playerCenterY) < 190;
   });
 
   return strong ? "Inimigo forte perto!" : "";
+}
+
+function getActiveBoss() {
+  if (currentScene !== "village") return null;
+
+  const playerCenterX = player.x + player.width / 2;
+  const playerCenterY = player.y + player.height / 2;
+  let nearest = null;
+  let nearestDistance = Infinity;
+
+  for (const obj of villageObjects) {
+    if (obj.type !== "enemy" || !obj.alive || !obj.boss) continue;
+    const distance = Math.hypot(obj.x + obj.width / 2 - playerCenterX, obj.y + obj.height / 2 - playerCenterY);
+    if ((distance < 520 || obj.hp < obj.maxHp) && distance < nearestDistance) {
+      nearest = obj;
+      nearestDistance = distance;
+    }
+  }
+
+  return nearest;
+}
+
+function getEnemyDisplayName(kind) {
+  const names = {
+    slimeVerde: "Slime Verde",
+    slimeVermelho: "Slime Vermelho",
+    slimeAzul: "Slime Azul",
+    morcego: "Morcego",
+    aranha: "Aranha",
+    goblin: "Goblin",
+    arqueiroGoblin: "Arqueiro Goblin",
+    magoSombrio: "Mago Sombrio",
+    golemPedra: "Golem de Pedra",
+    fantasma: "Fantasma",
+    peixeHostil: "Peixe Hostil",
+    miniDragao: "Mini Dragao",
+    miniGuardiao: "Mini Guardiao",
+    reiSlime: "Rei Slime",
+    aranhaRainha: "Aranha Rainha",
+    golemAncestral: "Golem Ancestral",
+    bruxoSombrio: "Bruxo Sombrio",
+    serpenteLago: "Serpente do Lago",
+    guardiao: "Guardiao das Ruinas",
+    slime: "Slime",
+    golem: "Golem de Pedra",
+    mago: "Mago Sombrio"
+  };
+  return names[kind] || kind;
 }
 
 function drawMiniMap() {
@@ -3253,6 +4665,13 @@ function drawMiniMap() {
     }
   }
 
+  miniCtx.fillStyle = "#ff4f62";
+  for (const obj of villageObjects) {
+    if (obj.type === "enemy" && obj.boss && obj.alive) {
+      miniCtx.fillRect(obj.x * sx - 2, obj.y * sy - 2, 6, 6);
+    }
+  }
+
   miniCtx.fillStyle = "#d24c63";
   miniCtx.fillRect(player.x * sx - 3, player.y * sy - 3, 7, 7);
 }
@@ -3268,8 +4687,14 @@ function saveGame() {
       maxHealth: player.maxHealth,
       mana: player.mana,
       maxMana: player.maxMana,
+      oxygen: player.oxygen,
+      maxOxygen: player.maxOxygen,
+      isSwimming: player.isSwimming,
       spellCooldowns: { ...player.spellCooldowns },
-      direction: player.direction
+      direction: player.direction,
+      currentWeaponIndex,
+      equippedPower,
+      unlockedWeapons: [...player.unlockedWeapons]
     },
     inventory: { ...inventory },
     quest: { ...quest },
@@ -3288,11 +4713,21 @@ function saveGame() {
       .map(getSaveObjectKey),
     enemies: villageObjects
       .filter((obj) => obj.type === "enemy")
-      .map((obj) => ({ key: getSaveObjectKey(obj), alive: obj.alive, hp: obj.hp }))
+      .map((obj) => ({ key: getSaveObjectKey(obj), alive: obj.alive, hp: obj.hp, phase: obj.phase })),
+    lootItems: lootItems
+      .filter((obj) => !obj.collected)
+      .map((obj) => ({
+        kind: obj.kind,
+        itemName: obj.itemName,
+        amount: obj.amount,
+        x: obj.x,
+        y: obj.y
+      }))
   };
 
   localStorage.setItem(SAVE_KEY, JSON.stringify(save));
   startMessage.textContent = "Jogo salvo!";
+  showHudToast("Jogo salvo!");
   saveNoticeTimer = 2;
 }
 
@@ -3307,6 +4742,9 @@ function loadGame() {
     Object.assign(questBook, save.questBook || {});
     Object.assign(dimensionQuest, save.dimensionQuest || {});
     Object.assign(activePowerUps, save.activePowerUps || {});
+    currentWeaponIndex = save.player?.currentWeaponIndex ?? 0;
+    equippedPower = save.player?.equippedPower || "fireball";
+    player.unlockedWeapons = save.player?.unlockedWeapons || player.unlockedWeapons;
 
     const collected = new Set(save.collected || []);
     const powerUpsCollected = new Set(save.powerUpsCollected || []);
@@ -3319,7 +4757,14 @@ function loadGame() {
         const savedEnemy = enemies.get(getSaveObjectKey(obj));
         obj.alive = savedEnemy ? savedEnemy.alive : true;
         obj.hp = savedEnemy ? savedEnemy.hp : obj.maxHp;
+        obj.phase = savedEnemy?.phase || 1;
       }
+    }
+
+    lootItems.length = 0;
+    for (const obj of save.lootItems || []) {
+      if (!Number.isFinite(obj.x) || !Number.isFinite(obj.y)) continue;
+      lootItems.push(lootItem(obj.x, obj.y, obj.kind || "moeda", obj.amount || 1, obj.itemName || ""));
     }
 
     for (const obj of powerUps) {
@@ -3348,8 +4793,12 @@ function loadGame() {
     player.health = save.player?.health ?? player.maxHealth;
     player.maxMana = save.player?.maxMana ?? 6;
     player.mana = save.player?.mana ?? player.maxMana;
+    player.maxOxygen = save.player?.maxOxygen ?? 10;
+    player.oxygen = save.player?.oxygen ?? player.maxOxygen;
+    player.isSwimming = Boolean(save.player?.isSwimming);
     Object.assign(player.spellCooldowns, save.player?.spellCooldowns || {});
     player.direction = save.player?.direction || "down";
+    normalizeRuntimeState();
     gameOver = player.health <= 0;
     gameOverScreen.classList.toggle("hidden", !gameOver);
     updateQuestProgress();
@@ -3373,12 +4822,15 @@ function getSaveObjectKey(obj) {
 function startGame(loadSave = false) {
   ensureAudio();
   startMusic();
+  updateDeviceMode();
+  setPause(false);
 
   if (loadSave && !loadGame()) {
     startMessage.textContent = "Nenhum jogo salvo encontrado.";
     return;
   }
 
+  normalizeRuntimeState();
   gameStarted = true;
   startScreen.classList.add("hidden");
   updateHud();
@@ -3398,6 +4850,30 @@ function showErrorMessage(error) {
   lastErrorMessage = message;
   console.error("Erro no jogo:", error);
   showInfo("Erro no jogo", `Algo deu errado, mas a tela nao vai ficar preta. Detalhe: ${message}`);
+}
+
+function updateDebugPanel(delta) {
+  if (!debugEnabled || !debugPanel) return;
+
+  fpsFrameCount += 1;
+  fpsTimer += delta;
+  if (fpsTimer >= 0.5) {
+    fpsEstimate = Math.round(fpsFrameCount / fpsTimer);
+    fpsFrameCount = 0;
+    fpsTimer = 0;
+  }
+
+  debugPanel.innerHTML = [
+    `Tela: ${window.innerWidth}x${window.innerHeight}`,
+    `Canvas: ${canvas.width}x${canvas.height}`,
+    `FPS: ${fpsEstimate || "--"}`,
+    `isMobile: ${isMobile}`,
+    `Cena: ${currentScene}`,
+    `X/Y: ${Math.round(player.x)} / ${Math.round(player.y)}`,
+    `Erro: ${lastErrorMessage || "nenhum"}`,
+    `Joystick: ${joystick.active ? "ativo" : "parado"} ${joystick.strength.toFixed(2)}`,
+    `Botao: ${pressedMobileButton || "nenhum"}`
+  ].join("<br>");
 }
 
 function ensureAudio() {
@@ -3488,6 +4964,15 @@ function playSound(name) {
     playTone(180, 0.12, "sawtooth", 0.09);
     setTimeout(() => playTone(360, 0.12, "triangle", 0.08), 110);
     setTimeout(() => playTone(720, 0.18, "triangle", 0.07), 230);
+  } else if (name === "weaponSwap") {
+    playTone(420, 0.05, "square", 0.05);
+    setTimeout(() => playTone(640, 0.06, "square", 0.04), 55);
+  } else if (name === "bow") {
+    playTone(220, 0.04, "triangle", 0.045);
+    setTimeout(() => playTone(160, 0.05, "triangle", 0.035), 45);
+  } else if (name === "water") {
+    playTone(180, 0.06, "sine", 0.025);
+    setTimeout(() => playTone(240, 0.05, "sine", 0.02), 40);
   }
 }
 
@@ -3530,7 +5015,12 @@ function renderInventory() {
     ["Pocoes", inventory.pocoes],
     ["Moedas", inventory.moedas],
     ["Espadas", inventory.espadas],
-    ["Cartas", inventory.cartas]
+    ["Cartas", inventory.cartas],
+    ["Flechas", inventory.flechas],
+    ["Fragmentos", inventory.fragmentos],
+    ["Orbes de mana", inventory.manaOrbes],
+    ["Chaves raras", inventory.chavesRaras],
+    ["Itens de boss", inventory.itensBoss.length ? inventory.itensBoss.join(", ") : 0]
   ];
   inventoryList.innerHTML = rows.map(([name, amount]) => `<li>${name}: <strong>${amount}</strong></li>`).join("");
 }
@@ -3570,9 +5060,11 @@ function usePotion() {
 function takeDamage(amount, sourceX = player.x, sourceY = player.y) {
   if (gameOver || playerInvulnerableTimer > 0) return;
 
-  const finalDamage = activePowerUps.shield > 0 ? Math.max(0, amount - 1) : amount;
+  const shieldBlock = activePowerUps.shield > 0 ? 1 : 0;
+  const finalDamage = Math.max(0, amount - shieldBlock - (player.defense || 0));
   playerInvulnerableTimer = 0.9;
   playSound("playerHit");
+  vibrate(finalDamage > 0 ? 45 : 16);
 
   if (finalDamage > 0) {
     player.health = Math.max(0, player.health - finalDamage);
@@ -3596,18 +5088,80 @@ function takeDamage(amount, sourceX = player.x, sourceY = player.y) {
 }
 
 function triggerAttack() {
-  if (gameOver || dialogOpen || inventoryOpen || shopOpen || currentScene !== "village") return;
-  if (attackWindupTimer > 0 || attackRecoveryTimer > 0 || attackTimer > 0) return;
+  triggerPrimaryAttack();
+}
+
+function triggerPrimaryAttack() {
+  if (gameOver || dialogOpen || inventoryOpen || shopOpen || pauseOpen || currentScene !== "village") return;
+  if (weaponCooldownTimer > 0 || attackWindupTimer > 0 || attackRecoveryTimer > 0 || attackTimer > 0) return;
+
+  updateDirectionFromAim();
+  const weapon = getCurrentWeapon();
+  const aim = getAimVector();
+  const swimPenalty = player.isSwimming && weapon.kind !== "projectile" ? 1.35 : 1;
+  weaponCooldownTimer = weapon.cooldown * swimPenalty;
+
+  if (weapon.kind === "projectile") {
+    fireWeaponProjectile(weapon, aim);
+    return;
+  }
 
   attackDirection = player.direction;
-  attackWindupTimer = 0.11;
-  attackRecoveryTimer = 0.26;
-  attackTimer = 0.34;
+  attackWindupTimer = weapon.kind === "line" ? 0.12 * swimPenalty : 0.09 * swimPenalty;
+  attackRecoveryTimer = weapon.cooldown * swimPenalty;
+  attackTimer = weapon.cooldown * swimPenalty;
   attackHitDone = false;
+  currentMeleeAttack = {
+    weaponKey: getCurrentWeaponKey(),
+    angle: aim.angle,
+    range: isMobile ? weapon.range + 16 : weapon.range,
+    arc: isMobile ? Math.min(Math.PI * 0.95, weapon.arc * 1.22) : weapon.arc,
+    timer: attackTimer,
+    maxTimer: attackTimer
+  };
   playSound("attack");
+  vibrate(18);
+}
+
+function fireWeaponProjectile(weapon, aim) {
+  if (weapon.projectile === "arrow") {
+    if (inventory.flechas <= 0) {
+      weaponCooldownTimer = 0.12;
+      spawnFloatingText("Sem flechas", player.x + 4, player.y - 16, "#fff264");
+      return;
+    }
+    inventory.flechas -= 1;
+    renderInventory();
+    updateHud();
+  }
+
+  if (weapon.projectile === "arrow" && player.isSwimming) {
+    spawnFloatingText("Flecha lenta na agua", player.x + 8, player.y - 16, "#55e8ff");
+  }
+
+  const centerX = player.x + player.width / 2;
+  const centerY = player.y + player.height / 2;
+  const waterSlow = player.isSwimming && weapon.projectile === "arrow" ? 0.48 : 1;
+  spawnPlayerProjectile({
+    type: weapon.projectile,
+    x: centerX - 5,
+    y: centerY - 5,
+    width: weapon.projectile === "arrow" ? 14 : 11,
+    height: weapon.projectile === "arrow" ? 5 : 11,
+    vx: aim.x * weapon.projectileSpeed * waterSlow,
+    vy: aim.y * weapon.projectileSpeed * waterSlow,
+    damage: weapon.damage,
+    damageType: weapon.damageType,
+    distance: 0,
+    maxDistance: weapon.range
+  });
+  playSound(weapon.projectile === "arrow" ? "bow" : "magic");
 }
 
 function updateAttack(delta) {
+  weaponCooldownTimer = Math.max(0, weaponCooldownTimer - delta);
+  dodgeCooldownTimer = Math.max(0, dodgeCooldownTimer - delta);
+
   if (attackWindupTimer > 0) {
     attackWindupTimer = Math.max(0, attackWindupTimer - delta);
     if (attackWindupTimer <= 0 && !attackHitDone) {
@@ -3621,16 +5175,21 @@ function updateAttack(delta) {
   }
 
   attackTimer = Math.max(0, attackTimer - delta);
+  if (currentMeleeAttack) {
+    currentMeleeAttack.timer = Math.max(0, currentMeleeAttack.timer - delta);
+    if (currentMeleeAttack.timer <= 0) currentMeleeAttack = null;
+  }
 }
 
 function resolveBasicAttack() {
-  const area = getAttackRect(attackDirection);
+  if (!currentMeleeAttack) return;
   let hit = false;
 
   for (const obj of villageObjects) {
-    if (obj.type !== "enemy" || !obj.alive || !rectsOverlap(area, obj)) continue;
-    const damage = getBasicAttackDamage();
-    if (damageEnemy(obj, damage, player.x + player.width / 2, player.y + player.height / 2, 190)) {
+    if (obj.type !== "enemy" || !obj.alive || !enemyInMeleeArc(obj, currentMeleeAttack)) continue;
+    const damage = getBasicAttackDamage(currentMeleeAttack.weaponKey);
+    const weapon = weapons[currentMeleeAttack.weaponKey] || weapons.sword;
+    if (damageEnemy(obj, damage, player.x + player.width / 2, player.y + player.height / 2, 190, weapon.damageType)) {
       hit = true;
     }
   }
@@ -3638,8 +5197,28 @@ function resolveBasicAttack() {
   if (hit) playSound("hitEnemy");
 }
 
-function getBasicAttackDamage() {
-  return (inventory.espadas > 0 ? 2 : 1) + (activePowerUps.force > 0 ? 1 : 0);
+function enemyInMeleeArc(enemyObj, attack) {
+  const centerX = player.x + player.width / 2;
+  const centerY = player.y + player.height / 2;
+  const enemyX = enemyObj.x + enemyObj.width / 2;
+  const enemyY = enemyObj.y + enemyObj.height / 2;
+  const dx = enemyX - centerX;
+  const dy = enemyY - centerY;
+  const distance = Math.hypot(dx, dy);
+  if (distance > attack.range + Math.max(enemyObj.width, enemyObj.height) / 2) return false;
+
+  const angle = Math.atan2(dy, dx);
+  const diff = Math.abs(angleDifference(angle, attack.angle));
+  return diff <= attack.arc / 2;
+}
+
+function angleDifference(a, b) {
+  return Math.atan2(Math.sin(a - b), Math.cos(a - b));
+}
+
+function getBasicAttackDamage(weaponKey = getCurrentWeaponKey()) {
+  const weapon = weapons[weaponKey] || weapons.sword;
+  return weapon.damage + (inventory.espadas > 0 ? 1 : 0) + (activePowerUps.force > 0 ? 1 : 0);
 }
 
 function getAttackRect(direction = player.direction) {
@@ -3658,15 +5237,32 @@ function updateInteractionHint() {
   const target = findInteraction();
   const hidden = !target || dialogOpen || shopOpen;
   interactionHint.classList.toggle("hidden", hidden);
-  if (hidden) return;
+  touchActionButton?.classList.toggle("is-context-ready", Boolean(target) && !dialogOpen && !shopOpen);
+  if (hidden) {
+    if (touchContextLabel) touchContextLabel.textContent = "...";
+    return;
+  }
 
-  if (target.type === "portal") interactionHint.textContent = "Pressione E para entrar no portal";
-  else if (target.type === "dimensionPortal") interactionHint.textContent = "Pressione E para voltar";
-  else if (target.type === "dimensionCrystal") interactionHint.textContent = "Pressione E para ativar cristal";
-  else if (target.type === "dimensionChest") interactionHint.textContent = "Pressione E para abrir o bau";
-  else if (target.type === "rareChest") interactionHint.textContent = "Pressione E para abrir o bau raro";
-  else if (target.type === "npc") interactionHint.textContent = "Pressione E para conversar";
-  else interactionHint.textContent = "Pressione E para interagir";
+  let label = "Interagir";
+  if (target.type === "portal") {
+    interactionHint.textContent = "Pressione E para entrar no portal";
+    label = "Entrar";
+  } else if (target.type === "dimensionPortal") {
+    interactionHint.textContent = "Pressione E para voltar";
+    label = "Entrar";
+  } else if (target.type === "dimensionCrystal") {
+    interactionHint.textContent = "Pressione E para ativar cristal";
+    label = "Ativar";
+  } else if (target.type === "dimensionChest" || target.type === "rareChest") {
+    interactionHint.textContent = target.type === "rareChest" ? "Pressione E para abrir o bau raro" : "Pressione E para abrir o bau";
+    label = "Abrir";
+  } else if (target.type === "npc") {
+    interactionHint.textContent = "Pressione E para conversar";
+    label = target.role === "shopkeeper" ? "Comprar" : "Falar";
+  } else {
+    interactionHint.textContent = "Pressione E para interagir";
+  }
+  if (touchContextLabel) touchContextLabel.textContent = label;
 }
 
 function showDialogMessage(message) {
@@ -3711,11 +5307,14 @@ function resetPlayer() {
   gameOverScreen.classList.add("hidden");
   player.health = player.maxHealth;
   player.mana = player.maxMana;
+  player.oxygen = player.maxOxygen;
+  player.isSwimming = false;
   playerInvulnerableTimer = 0;
   playerKnockbackX = 0;
   playerKnockbackY = 0;
   projectiles.length = 0;
   enemyProjectiles.length = 0;
+  hazardZones.length = 0;
   floatingTexts.length = 0;
   player.x = player.startX;
   player.y = player.startY;
@@ -3744,11 +5343,111 @@ window.addEventListener("unhandledrejection", (event) => {
   showErrorMessage(event.reason || "Promessa rejeitada sem detalhe.");
 });
 
+function updateMouseAim(event) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  mouseAim.screenX = (event.clientX - rect.left) * scaleX;
+  mouseAim.screenY = (event.clientY - rect.top) * scaleY;
+  mouseAim.worldX = mouseAim.screenX + camera.x;
+  mouseAim.worldY = mouseAim.screenY + camera.y;
+  mouseAim.angle = Math.atan2(
+    mouseAim.worldY - (player.y + player.height / 2),
+    mouseAim.worldX - (player.x + player.width / 2)
+  );
+  mouseAim.active = true;
+}
+
+canvas.addEventListener("mousemove", updateMouseAim);
+
+canvas.addEventListener("mousedown", (event) => {
+  updateMouseAim(event);
+  event.preventDefault();
+
+  if (event.button === 0) {
+    triggerPrimaryAttack();
+  } else if (event.button === 2) {
+    useEquippedPower();
+  }
+});
+
+canvas.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+});
+
+canvas.addEventListener("pointerdown", (event) => {
+  if (event.pointerType === "mouse") return;
+  event.preventDefault();
+  selectMobileTargetFromPoint(event);
+});
+
+function selectMobileTargetFromPoint(event) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const worldX = (event.clientX - rect.left) * scaleX + camera.x;
+  const worldY = (event.clientY - rect.top) * scaleY + camera.y;
+  const tapRect = { x: worldX - 18, y: worldY - 18, width: 36, height: 36 };
+
+  const target = villageObjects.find((obj) => (
+    obj.type === "enemy" &&
+    obj.alive &&
+    rectsOverlap(tapRect, obj)
+  ));
+
+  if (target) {
+    mobileLockedTarget = target;
+    currentAutoAimTarget = target;
+    spawnFloatingText("Alvo", target.x + target.width / 2, target.y - 12, "#fff264");
+    vibrate(10);
+  }
+}
+
 window.addEventListener("keydown", (event) => {
   const key = event.key.toLowerCase();
 
-  if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d", "e", "i", "u", "q", "r", "f", "c", " "].includes(key)) {
+  if (["arrowup", "arrowdown", "arrowleft", "arrowright", "w", "a", "s", "d", "e", "i", "u", "q", "r", "f", "c", "m", "escape", "f3", " ", "tab", "1", "2", "3", "4"].includes(key)) {
     event.preventDefault();
+  }
+
+  if (key === "f3") {
+    debugEnabled = !debugEnabled;
+    debugPanel?.classList.toggle("hidden", !debugEnabled);
+    mobileDebugButton?.classList.toggle("hidden", !debugEnabled);
+    return;
+  }
+
+  if (key === "m") {
+    toggleMissionsPanel();
+    return;
+  }
+
+  if (key === "c") {
+    toggleStatusPanel();
+    return;
+  }
+
+  if (key === "escape") {
+    if (missionsOpen || statusOpen) {
+      closeOverlayPanels();
+    } else {
+      setPause(!pauseOpen);
+    }
+    return;
+  }
+
+  if (pauseOpen) {
+    return;
+  }
+
+  if (["1", "2", "3", "4"].includes(key)) {
+    equipPower(Number(key) - 1);
+    return;
+  }
+
+  if (key === "tab") {
+    cycleWeapon();
+    return;
   }
 
   if (key === "i") {
@@ -3762,12 +5461,12 @@ window.addEventListener("keydown", (event) => {
   }
 
   if (key === " ") {
-    triggerAttack();
+    dodgeDash();
     return;
   }
 
   if (key === "q") {
-    castFireball();
+    useEquippedPower();
     return;
   }
 
@@ -3778,11 +5477,6 @@ window.addEventListener("keydown", (event) => {
 
   if (key === "f") {
     shockwave();
-    return;
-  }
-
-  if (key === "c") {
-    quickHeal();
     return;
   }
 
@@ -3799,6 +5493,9 @@ window.addEventListener("keyup", (event) => {
 });
 
 function setupTouchControls() {
+  setupJoystick();
+  if (touchActionButton) touchActionButton.textContent = "E";
+
   for (const button of touchDirectionButtons) {
     const key = button.dataset.touchKey;
 
@@ -3823,35 +5520,132 @@ function setupTouchControls() {
     });
   }
 
-  const bindTouchAction = (button, action) => {
+  const bindTouchAction = (button, action, name = "") => {
     if (!button) return;
     button.addEventListener("pointerdown", (event) => {
       event.preventDefault();
+      try {
+        button.setPointerCapture(event.pointerId);
+      } catch (error) {
+        // Alguns navegadores nao permitem captura em certos eventos sinteticos.
+      }
       button.classList.add("is-pressed");
+      setMobilePressedButton(name || button.id);
       action();
     });
     button.addEventListener("pointerup", (event) => {
       event.preventDefault();
       button.classList.remove("is-pressed");
+      clearMobilePressedButton(name || button.id);
     });
     button.addEventListener("pointercancel", () => {
       button.classList.remove("is-pressed");
+      clearMobilePressedButton(name || button.id);
+    });
+    button.addEventListener("lostpointercapture", () => {
+      button.classList.remove("is-pressed");
+      clearMobilePressedButton(name || button.id);
     });
   };
 
-  bindTouchAction(touchActionButton, toggleInteraction);
-  bindTouchAction(touchAttackButton, triggerAttack);
-  bindTouchAction(touchInventoryButton, toggleInventory);
-  bindTouchAction(touchFireballButton, castFireball);
-  bindTouchAction(touchDashButton, dash);
-  bindTouchAction(touchShockwaveButton, shockwave);
-  bindTouchAction(touchHealButton, quickHeal);
+  bindTouchAction(touchActionButton, toggleInteraction, "interagir");
+  bindTouchAction(touchAttackButton, triggerPrimaryAttack, "ataque");
+  bindTouchAction(touchInventoryButton, toggleInventory, "inventario");
+  bindTouchAction(touchPotionButton, usePotion, "pocao");
+  bindTouchAction(touchFireballButton, () => {
+    equipPower(0);
+    useEquippedPower();
+  }, "fogo");
+  bindTouchAction(touchDashButton, dodgeDash, "dash");
+  bindTouchAction(touchShockwaveButton, () => {
+    equipPower(2);
+    useEquippedPower();
+  }, "onda");
+  bindTouchAction(touchHealButton, () => {
+    equipPower(3);
+    useEquippedPower();
+  }, "cura");
+  bindTouchAction(touchPowerButton, useEquippedPower, "poder");
+  bindTouchAction(touchWeaponButton, cycleWeapon, "arma");
+  bindTouchAction(touchPower1Button, () => equipPower(0), "poder1");
+  bindTouchAction(touchPower2Button, () => equipPower(1), "poder2");
+  bindTouchAction(touchPower3Button, () => equipPower(2), "poder3");
+  bindTouchAction(touchPower4Button, () => equipPower(3), "poder4");
+  bindTouchAction(mobileFullscreenButton, requestGameFullscreen, "fullscreen");
+  bindTouchAction(startFullscreenButton, requestGameFullscreen, "fullscreen");
+  bindTouchAction(mobilePauseButton, () => setPause(true), "pausa");
+  bindTouchAction(hudMenuButton, () => setPause(true), "menu");
+  bindTouchAction(mobileDebugButton, () => {
+    debugEnabled = !debugEnabled;
+    debugPanel?.classList.toggle("hidden", !debugEnabled);
+  }, "debug");
+  bindTouchAction(dialogContinueButton, closeDialog, "dialogo");
 
   document.addEventListener("touchmove", (event) => {
     if (event.target.closest(".touch-controls")) {
       event.preventDefault();
     }
   }, { passive: false });
+}
+
+function setupJoystick() {
+  if (!joystickBase || !joystickStick) return;
+
+  joystickBase.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    joystick.active = true;
+    joystick.pointerId = event.pointerId;
+    const rect = joystickBase.getBoundingClientRect();
+    joystick.centerX = rect.left + rect.width / 2;
+    joystick.centerY = rect.top + rect.height / 2;
+    try {
+      joystickBase.setPointerCapture(event.pointerId);
+    } catch (error) {
+      // Captura nao e obrigatoria.
+    }
+    updateJoystick(event);
+  });
+
+  joystickBase.addEventListener("pointermove", (event) => {
+    if (!joystick.active || event.pointerId !== joystick.pointerId) return;
+    event.preventDefault();
+    updateJoystick(event);
+  });
+
+  const release = (event) => {
+    if (event.pointerId !== joystick.pointerId) return;
+    event.preventDefault();
+    resetJoystick();
+  };
+
+  joystickBase.addEventListener("pointerup", release);
+  joystickBase.addEventListener("pointercancel", release);
+  joystickBase.addEventListener("lostpointercapture", resetJoystick);
+}
+
+function updateJoystick(event) {
+  const radius = joystickBase.getBoundingClientRect().width * 0.38;
+  const dx = event.clientX - joystick.centerX;
+  const dy = event.clientY - joystick.centerY;
+  const distance = Math.hypot(dx, dy);
+  const clamped = Math.min(distance, radius);
+  const angle = Math.atan2(dy, dx);
+  const stickX = Math.cos(angle) * clamped;
+  const stickY = Math.sin(angle) * clamped;
+
+  joystick.x = distance > 4 ? dx / Math.max(distance, 1) : 0;
+  joystick.y = distance > 4 ? dy / Math.max(distance, 1) : 0;
+  joystick.strength = clamp(distance / radius, 0, 1);
+  joystickStick.style.transform = `translate(calc(-50% + ${stickX}px), calc(-50% + ${stickY}px))`;
+}
+
+function resetJoystick() {
+  joystick.active = false;
+  joystick.pointerId = null;
+  joystick.x = 0;
+  joystick.y = 0;
+  joystick.strength = 0;
+  if (joystickStick) joystickStick.style.transform = "translate(-50%, -50%)";
 }
 
 resetButton.addEventListener("click", resetPlayer);
@@ -3867,10 +5661,7 @@ saveButton.addEventListener("click", () => {
 playButton.addEventListener("click", () => startGame(false));
 continueButton.addEventListener("click", () => startGame(true));
 howToButton.addEventListener("click", () => {
-  showInfo(
-    "Como Jogar",
-    "W A S D ou setas: mover\nE: conversar/interagir\nEspaco: ataque basico\nQ: Bola de Fogo\nR: Dash\nF: Onda de Choque\nC: Cura Rapida\nI: inventario\nU: usar pocao\nNo celular, use os botoes Q/R/F/C do painel touch.\nUse Salvar Jogo para guardar seu progresso."
-  );
+  showHowTo();
 });
 creditsButton.addEventListener("click", () => {
   showInfo(
@@ -3879,6 +5670,36 @@ creditsButton.addEventListener("click", () => {
   );
 });
 closeInfoButton.addEventListener("click", () => infoPanel.classList.add("hidden"));
+hudMenuButton?.addEventListener("click", () => setPause(true));
+pauseContinueButton?.addEventListener("click", () => setPause(false));
+pauseSaveButton?.addEventListener("click", () => {
+  saveGame();
+  setPause(false);
+});
+pauseResetButton?.addEventListener("click", () => {
+  resetPlayer();
+  setPause(false);
+});
+pauseHowToButton?.addEventListener("click", () => {
+  setPause(false);
+  showHowTo();
+});
+pauseMissionsButton?.addEventListener("click", () => toggleMissionsPanel(true));
+pauseStatusButton?.addEventListener("click", () => toggleStatusPanel(true));
+pauseInventoryButton?.addEventListener("click", () => {
+  setPause(false);
+  if (!inventoryOpen) toggleInventory();
+});
+pauseMenuButton?.addEventListener("click", returnToStartMenu);
+closeMissionsButton?.addEventListener("click", () => toggleMissionsPanel(false));
+closeStatusButton?.addEventListener("click", () => toggleStatusPanel(false));
 
+window.addEventListener("resize", updateDeviceMode);
+window.addEventListener("orientationchange", () => setTimeout(updateDeviceMode, 250));
+window.addEventListener("blur", () => {
+  if (gameStarted && !gameOver && isMobile) setPause(true);
+});
+
+updateDeviceMode();
 setupTouchControls();
 requestAnimationFrame(gameLoop);
