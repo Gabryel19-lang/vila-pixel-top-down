@@ -126,10 +126,47 @@
         <button id="dialogContinueButton" type="button">Continuar</button>
       </div>
 
-      <div id="inventoryPanel" class="panel inventory-panel hidden">
-        <h2>Inventario</h2>
-        <ul id="inventoryList"></ul>
-        <p>Pressione I para fechar. Pressione U para usar pocao.</p>
+      <div id="inventoryPanel" class="panel inventory-panel adventurer-bag hidden" role="dialog" aria-label="Inventario">
+        <div class="inventory-header">
+          <div>
+            <span class="panel-eyebrow">Bolsa do Aventureiro</span>
+            <h2>Inventario</h2>
+          </div>
+          <button id="closeInventoryButton" class="inventory-close-button" type="button" aria-label="Fechar inventario">Fechar</button>
+        </div>
+
+        <div id="inventoryTabs" class="inventory-tabs" role="tablist" aria-label="Categorias do inventario">
+          <button class="is-active" type="button" data-inventory-tab="all">Tudo</button>
+          <button type="button" data-inventory-tab="consumiveis">Consumiveis</button>
+          <button type="button" data-inventory-tab="armas">Armas</button>
+          <button type="button" data-inventory-tab="materiais">Materiais</button>
+          <button type="button" data-inventory-tab="missao">Missao</button>
+          <button type="button" data-inventory-tab="raros">Raros</button>
+        </div>
+
+        <div class="inventory-layout">
+          <section class="inventory-grid-wrap" aria-label="Itens da bolsa">
+            <div id="inventoryGrid" class="inventory-grid"></div>
+            <p id="inventoryEmpty" class="inventory-empty hidden">Sua bolsa esta vazia.</p>
+          </section>
+
+          <aside class="inventory-side">
+            <section class="equipment-box" aria-label="Equipamentos atuais">
+              <h3>Equipamentos</h3>
+              <div id="equipmentSlots" class="equipment-slots"></div>
+            </section>
+
+            <section class="item-details" aria-label="Detalhes do item">
+              <h3 id="itemDetailName">Selecione um item</h3>
+              <p id="itemDetailMeta">Toque ou clique em um slot.</p>
+              <p id="itemDetailDescription">Veja detalhes, raridade e acoes.</p>
+              <p id="itemDetailEffect"></p>
+              <div id="itemDetailActions" class="item-detail-actions"></div>
+            </section>
+          </aside>
+        </div>
+
+        <ul id="inventoryList" class="legacy-inventory-list hidden"></ul>
       </div>
 
       <div id="shopPanel" class="panel shop-panel hidden">

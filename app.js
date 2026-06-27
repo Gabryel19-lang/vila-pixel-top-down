@@ -32,6 +32,16 @@ const dialogText = document.getElementById("dialogText");
 const interactionHint = document.getElementById("interactionHint");
 const inventoryPanel = document.getElementById("inventoryPanel");
 const inventoryList = document.getElementById("inventoryList");
+const closeInventoryButton = document.getElementById("closeInventoryButton");
+const inventoryTabs = document.getElementById("inventoryTabs");
+const inventoryGrid = document.getElementById("inventoryGrid");
+const inventoryEmpty = document.getElementById("inventoryEmpty");
+const equipmentSlots = document.getElementById("equipmentSlots");
+const itemDetailName = document.getElementById("itemDetailName");
+const itemDetailMeta = document.getElementById("itemDetailMeta");
+const itemDetailDescription = document.getElementById("itemDetailDescription");
+const itemDetailEffect = document.getElementById("itemDetailEffect");
+const itemDetailActions = document.getElementById("itemDetailActions");
 const shopPanel = document.getElementById("shopPanel");
 const shopMessage = document.getElementById("shopMessage");
 const buyPotionButton = document.getElementById("buyPotionButton");
@@ -88,6 +98,8 @@ if (bossHud && canvas.parentElement && bossHud.parentElement !== canvas.parentEl
   canvas.parentElement.appendChild(bossHud);
 }
 
+const urlParams = new URLSearchParams(window.location.search);
+const shouldAutoStart = urlParams.get("play") === "1" || urlParams.get("start") === "1";
 const SAVE_KEY = "gabryel-garcia-o-brabo-save-v1";
 const TILE = 32;
 const MAP_COLS = 82;
@@ -146,9 +158,11 @@ let pressedMobileButton = "";
 let fpsEstimate = 0;
 let fpsFrameCount = 0;
 let fpsTimer = 0;
-let debugEnabled = new URLSearchParams(window.location.search).get("debug") === "1";
+let debugEnabled = urlParams.get("debug") === "1";
 let hudToastTimer = 0;
 let hudToastText = "";
+let inventoryTab = "all";
+let selectedInventoryItemId = "";
 
 const joystick = {
   active: false,
@@ -1456,6 +1470,12 @@ function setActiveScene(scene) {
 }
 
 function normalizeRuntimeState() {
+  inventory.cristais = Number(inventory.cristais || 0);
+  inventory.chaves = Number(inventory.chaves || 0);
+  inventory.pocoes = Number(inventory.pocoes || 0);
+  inventory.moedas = Number(inventory.moedas || 0);
+  inventory.espadas = Number(inventory.espadas || 0);
+  inventory.cartas = Number(inventory.cartas || 0);
   inventory.fragmentos = Number(inventory.fragmentos || 0);
   inventory.flechas = Number(inventory.flechas ?? 12);
   inventory.chavesRaras = Number(inventory.chavesRaras || 0);
@@ -1578,6 +1598,8 @@ function setPause(open) {
   pausePanel?.classList.toggle("hidden", !pauseOpen);
   if (pauseOpen) {
     closeOverlayPanels();
+    if (inventoryOpen) toggleInventory(false);
+    closeShop();
     keys.clear();
   }
 }
@@ -2176,6 +2198,23 @@ function cycleWeapon() {
   showHudToast(`Arma equipada: ${getCurrentWeapon().name}`);
   playSound("weaponSwap");
   updateHud();
+}
+
+function equipWeapon(weaponKey) {
+  const unlocked = player.unlockedWeapons?.length ? player.unlockedWeapons : weaponOrder;
+  const index = unlocked.indexOf(weaponKey);
+  if (index === -1 || !weapons[weaponKey]) {
+    showHudToast("Arma ainda bloqueada.");
+    playSound("invalid");
+    return false;
+  }
+
+  currentWeaponIndex = index;
+  spawnFloatingText(`Arma: ${weapons[weaponKey].name}`, player.x + 10, player.y - 18, "#fff264");
+  showHudToast(`Arma equipada: ${weapons[weaponKey].name}`);
+  playSound("equipItem");
+  updateHud();
+  return true;
 }
 
 function equipPower(slotIndex) {
@@ -4914,6 +4953,22 @@ function playSound(name) {
     setTimeout(() => playTone(430, 0.08, "triangle", 0.06), 80);
   } else if (name === "dialog") {
     playTone(620, 0.06, "sine", 0.06);
+  } else if (name === "inventoryOpen") {
+    playTone(260, 0.06, "square", 0.05);
+    setTimeout(() => playTone(520, 0.08, "triangle", 0.05), 55);
+  } else if (name === "inventoryClose") {
+    playTone(420, 0.05, "triangle", 0.04);
+    setTimeout(() => playTone(220, 0.07, "square", 0.035), 55);
+  } else if (name === "selectItem") {
+    playTone(680, 0.04, "square", 0.035);
+  } else if (name === "usePotion") {
+    playTone(540, 0.08, "triangle", 0.06);
+    setTimeout(() => playTone(760, 0.08, "triangle", 0.05), 70);
+  } else if (name === "equipItem") {
+    playTone(480, 0.05, "square", 0.05);
+    setTimeout(() => playTone(720, 0.06, "square", 0.04), 55);
+  } else if (name === "invalid") {
+    playTone(110, 0.09, "sawtooth", 0.045);
   } else if (name === "hit") {
     playTone(150, 0.12, "sawtooth", 0.08);
   } else if (name === "portal") {
@@ -5002,27 +5057,421 @@ function startMusic() {
   }, 360);
 }
 
-function toggleInventory() {
-  inventoryOpen = !inventoryOpen;
-  inventoryPanel.classList.toggle("hidden", !inventoryOpen);
-  renderInventory();
+function toggleInventory(force) {
+  const nextOpen = typeof force === "boolean" ? force : !inventoryOpen;
+  if (inventoryOpen === nextOpen) return;
+
+  inventoryOpen = nextOpen;
+  inventoryPanel?.classList.toggle("hidden", !inventoryOpen);
+
+  if (inventoryOpen) {
+    closeOverlayPanels();
+    closeShop();
+    setPause(false);
+    keys.clear();
+    playSound("inventoryOpen");
+    renderInventory();
+  } else {
+    playSound("inventoryClose");
+  }
+}
+
+function getInventoryItems() {
+  const items = [];
+  const addItem = (item) => {
+    if (!item || item.quantity <= 0) return;
+    items.push({
+      rarity: "comum",
+      typeLabel: "Item",
+      effect: "",
+      action: "",
+      ...item
+    });
+  };
+
+  addItem({
+    id: "moedas",
+    name: "Moedas",
+    icon: "$",
+    quantity: Number(inventory.moedas || 0),
+    category: "materiais",
+    typeLabel: "Dinheiro",
+    rarity: "comum",
+    description: "Usadas para comprar pocoes e recompensas na vila.",
+    effect: "Loja: 5 moedas compram 1 pocao."
+  });
+  addItem({
+    id: "pocoes",
+    name: "Pocoes",
+    icon: "P",
+    quantity: Number(inventory.pocoes || 0),
+    category: "consumiveis",
+    typeLabel: "Consumivel",
+    rarity: "comum",
+    description: "Frasco vermelho para recuperar vida durante a aventura.",
+    effect: "Recupera 1 coracao.",
+    action: "usePotion"
+  });
+  addItem({
+    id: "cristais",
+    name: "Cristais",
+    icon: "C",
+    quantity: Number(inventory.cristais || 0),
+    category: "missao",
+    typeLabel: "Missao",
+    rarity: "incomum",
+    description: "Cristais brilhantes pedidos por Nico.",
+    effect: "Leve 3 cristais para concluir a primeira missao.",
+    locked: true
+  });
+  addItem({
+    id: "chaves",
+    name: "Chaves",
+    icon: "K",
+    quantity: Number(inventory.chaves || 0),
+    category: "missao",
+    typeLabel: "Missao",
+    rarity: "incomum",
+    description: "Chaves perdidas encontradas pela vila.",
+    effect: "Podem abrir caminhos e completar missoes.",
+    locked: true
+  });
+  addItem({
+    id: "cartas",
+    name: "Cartas",
+    icon: "L",
+    quantity: Number(inventory.cartas || 0),
+    category: "missao",
+    typeLabel: "Entrega",
+    rarity: "comum",
+    description: "Carta que precisa chegar ao morador certo.",
+    effect: "Entregue para concluir a missao da carta.",
+    locked: true
+  });
+  addItem({
+    id: "espadas-extra",
+    name: "Espadas extras",
+    icon: "S",
+    quantity: Number(inventory.espadas || 0),
+    category: "armas",
+    typeLabel: "Arma rara",
+    rarity: "raro",
+    description: "Espadas especiais obtidas em recompensa.",
+    effect: "Cada espada extra aumenta o dano fisico em +1.",
+    locked: true
+  });
+  addItem({
+    id: "flechas",
+    name: "Flechas",
+    icon: "A",
+    quantity: Number(inventory.flechas || 0),
+    category: "materiais",
+    typeLabel: "Municao",
+    rarity: "comum",
+    description: "Municao usada pelo arco.",
+    effect: "O arco consome 1 flecha por disparo."
+  });
+  addItem({
+    id: "fragmentos",
+    name: "Fragmentos",
+    icon: "F",
+    quantity: Number(inventory.fragmentos || 0),
+    category: "materiais",
+    typeLabel: "Material",
+    rarity: "raro",
+    description: "Pedacos brilhantes deixados por monstros fortes.",
+    effect: "Material raro para futuras melhorias.",
+    locked: true
+  });
+  addItem({
+    id: "mana-orbes",
+    name: "Orbes de mana",
+    icon: "M",
+    quantity: Number(inventory.manaOrbes || 0),
+    category: "consumiveis",
+    typeLabel: "Energia",
+    rarity: "incomum",
+    description: "Orbes roxos cheios de magia.",
+    effect: "Recarregam mana quando coletados pelo mapa.",
+    locked: true
+  });
+  addItem({
+    id: "chaves-raras",
+    name: "Chaves raras",
+    icon: "R",
+    quantity: Number(inventory.chavesRaras || 0),
+    category: "raros",
+    typeLabel: "Raro",
+    rarity: "epico",
+    description: "Chaves antigas carregadas de energia.",
+    effect: "Guardam segredos de baus especiais.",
+    locked: true
+  });
+
+  const collectedPowerUps = typeof powerUps !== "undefined" ? powerUps.filter((obj) => obj.collected).length : 0;
+  addItem({
+    id: "powerups-coletados",
+    name: "Power-ups coletados",
+    icon: "B",
+    quantity: collectedPowerUps,
+    category: "raros",
+    typeLabel: "Registro",
+    rarity: "incomum",
+    description: "Total de power-ups temporarios ja encontrados.",
+    effect: "Velocidade, forca, escudo, regeneracao e respiracao aquatica.",
+    locked: true
+  });
+
+  for (const [key, timeLeft] of Object.entries(activePowerUps)) {
+    if (timeLeft <= 0) continue;
+    addItem({
+      id: `buff-${key}`,
+      name: getPowerUpName(key),
+      icon: "B",
+      quantity: Math.ceil(timeLeft),
+      category: "raros",
+      typeLabel: "Buff ativo",
+      rarity: "epico",
+      description: "Power-up temporario ativo agora.",
+      effect: `Tempo restante: ${Math.ceil(timeLeft)}s.`,
+      locked: true
+    });
+  }
+
+  for (const weaponKey of player.unlockedWeapons || []) {
+    const weapon = weapons[weaponKey] || weapons.sword;
+    const rarity = weaponKey === "sword" ? "comum" : weaponKey === "bow" ? "incomum" : weaponKey === "staff" ? "raro" : "epico";
+    addItem({
+      id: `weapon-${weaponKey}`,
+      name: weapon.name,
+      icon: weaponKey === "bow" ? "A" : weaponKey === "staff" ? "W" : weaponKey === "spear" ? "L" : "S",
+      quantity: 1,
+      category: "armas",
+      typeLabel: "Arma",
+      rarity,
+      description: getWeaponDescription(weaponKey),
+      effect: `Dano ${weapon.damage} | Alcance ${weapon.range}`,
+      action: "equipWeapon",
+      weaponKey
+    });
+  }
+
+  for (const powerKey of powerSlots) {
+    addItem({
+      id: `power-${powerKey}`,
+      name: powerNames[powerKey] || "Poder",
+      icon: "Q",
+      quantity: 1,
+      category: "raros",
+      typeLabel: "Poder",
+      rarity: powerKey === "heal" ? "incomum" : powerKey === "shockwave" ? "epico" : "raro",
+      description: getPowerDescription(powerKey),
+      effect: `Custo de mana: ${spellCosts[powerKey] || 0}`,
+      action: "equipPower",
+      powerKey
+    });
+  }
+
+  if (quest.status === "done") {
+    addItem({
+      id: "amuleto-vila",
+      name: quest.reward || "Amuleto da Vila",
+      icon: "O",
+      quantity: 1,
+      category: "raros",
+      typeLabel: "Amuleto",
+      rarity: "lendario",
+      description: "Recompensa por ajudar Nico com os cristais.",
+      effect: "Simbolo de amizade com a vila.",
+      locked: true
+    });
+  }
+
+  (inventory.itensBoss || []).forEach((itemName, index) => {
+    addItem({
+      id: `boss-${index}-${String(itemName).replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`,
+      name: itemName || "Item misterioso",
+      icon: "X",
+      quantity: 1,
+      category: "raros",
+      typeLabel: "Boss",
+      rarity: "lendario",
+      description: "Trofeu raro deixado por um chefe derrotado.",
+      effect: "Item especial guardado na bolsa.",
+      locked: true
+    });
+  });
+
+  return items;
+}
+
+function getWeaponDescription(weaponKey) {
+  if (weaponKey === "bow") return "Arma de longo alcance que consome flechas.";
+  if (weaponKey === "staff") return "Cajado magico que dispara energia azul.";
+  if (weaponKey === "spear") return "Lanca com ataque frontal mais comprido.";
+  return "Espada confiavel para combate de perto.";
+}
+
+function getPowerDescription(powerKey) {
+  if (powerKey === "blueRay") return "Disparo magico rapido para acertar inimigos a distancia.";
+  if (powerKey === "shockwave") return "Onda de choque que empurra e fere inimigos ao redor.";
+  if (powerKey === "heal") return "Magia de cura para recuperar vida usando mana.";
+  return "Bola de fogo para causar dano magico.";
+}
+
+function getFilteredInventoryItems(items) {
+  if (inventoryTab === "all") return items;
+  if (inventoryTab === "raros") return items.filter((item) => item.category === "raros" || ["raro", "epico", "lendario"].includes(item.rarity));
+  return items.filter((item) => item.category === inventoryTab);
+}
+
+function getInventoryItemById(itemId) {
+  return getInventoryItems().find((item) => item.id === itemId) || null;
+}
+
+function formatRarity(rarity) {
+  if (rarity === "incomum") return "Incomum";
+  if (rarity === "raro") return "Raro";
+  if (rarity === "epico") return "Epico";
+  if (rarity === "lendario") return "Lendario";
+  return "Comum";
 }
 
 function renderInventory() {
-  const rows = [
-    ["Cristais", inventory.cristais],
-    ["Chaves", inventory.chaves],
-    ["Pocoes", inventory.pocoes],
-    ["Moedas", inventory.moedas],
-    ["Espadas", inventory.espadas],
-    ["Cartas", inventory.cartas],
-    ["Flechas", inventory.flechas],
-    ["Fragmentos", inventory.fragmentos],
-    ["Orbes de mana", inventory.manaOrbes],
-    ["Chaves raras", inventory.chavesRaras],
-    ["Itens de boss", inventory.itensBoss.length ? inventory.itensBoss.join(", ") : 0]
+  const items = getInventoryItems();
+  const filteredItems = getFilteredInventoryItems(items);
+  const selectedExists = filteredItems.some((item) => item.id === selectedInventoryItemId);
+  if (!selectedExists) selectedInventoryItemId = filteredItems[0]?.id || "";
+
+  renderInventoryTabs();
+  renderInventoryGrid(filteredItems, items.length);
+  renderEquipmentSlots();
+  renderItemDetails(getInventoryItemById(selectedInventoryItemId));
+
+  if (inventoryList) {
+    inventoryList.innerHTML = items.map((item) => `<li>${item.name}: <strong>${item.quantity}</strong></li>`).join("");
+  }
+}
+
+function renderInventoryTabs() {
+  if (!inventoryTabs) return;
+  for (const button of inventoryTabs.querySelectorAll("[data-inventory-tab]")) {
+    button.classList.toggle("is-active", button.dataset.inventoryTab === inventoryTab);
+  }
+}
+
+function renderInventoryGrid(filteredItems, totalItems) {
+  if (!inventoryGrid) return;
+
+  const slotCount = Math.max(30, filteredItems.length);
+  const slots = [];
+  for (let index = 0; index < slotCount; index += 1) {
+    const item = filteredItems[index];
+    if (!item) {
+      slots.push(`<button class="inventory-slot is-empty" type="button" disabled aria-label="Slot vazio"></button>`);
+      continue;
+    }
+
+    const equipped = (item.weaponKey && item.weaponKey === getCurrentWeaponKey()) ||
+      (item.powerKey && item.powerKey === equippedPower);
+    slots.push(`
+      <button class="inventory-slot rarity-${item.rarity}${selectedInventoryItemId === item.id ? " is-selected" : ""}${equipped ? " is-equipped" : ""}" type="button" data-item-id="${item.id}">
+        <span class="item-icon">${item.icon || "?"}</span>
+        <span class="item-qty">${item.quantity > 1 ? item.quantity : ""}</span>
+      </button>
+    `);
+  }
+
+  inventoryGrid.innerHTML = slots.join("");
+  if (inventoryEmpty) {
+    inventoryEmpty.textContent = totalItems ? "Nada nesta aba." : "Sua bolsa esta vazia.";
+    inventoryEmpty.classList.toggle("hidden", filteredItems.length > 0);
+  }
+}
+
+function renderEquipmentSlots() {
+  if (!equipmentSlots) return;
+
+  const bossItem = inventory.itensBoss?.[0] || "Vazio";
+  const slots = [
+    ["Arma", getCurrentWeapon().name],
+    ["Poder Q", powerNames[equippedPower] || "Nenhum"],
+    ["Amuleto", quest.status === "done" ? (quest.reward || "Amuleto da Vila") : "Vazio"],
+    ["Especial", bossItem],
+    ["Defesa", `${player.defense || 0}`]
   ];
-  inventoryList.innerHTML = rows.map(([name, amount]) => `<li>${name}: <strong>${amount}</strong></li>`).join("");
+
+  equipmentSlots.innerHTML = slots.map(([label, value]) => `
+    <div class="equipment-slot">
+      <span>${label}</span>
+      <strong>${value}</strong>
+    </div>
+  `).join("");
+}
+
+function renderItemDetails(item) {
+  if (!itemDetailName || !itemDetailMeta || !itemDetailDescription || !itemDetailEffect || !itemDetailActions) return;
+
+  if (!item) {
+    itemDetailName.textContent = "Bolsa vazia";
+    itemDetailMeta.textContent = "Nenhum item selecionado.";
+    itemDetailDescription.textContent = "Colete moedas, pocoes, cristais, chaves e armas pelo mapa.";
+    itemDetailEffect.textContent = "";
+    itemDetailActions.innerHTML = "";
+    return;
+  }
+
+  itemDetailName.textContent = item.name;
+  itemDetailMeta.textContent = `${item.typeLabel} | ${formatRarity(item.rarity)} | Qtd. ${item.quantity}`;
+  itemDetailDescription.textContent = item.description || "Item desconhecido guardado com cuidado.";
+  itemDetailEffect.textContent = item.effect || "";
+  itemDetailActions.innerHTML = getInventoryActionHtml(item);
+}
+
+function getInventoryActionHtml(item) {
+  if (item.action === "usePotion") {
+    const disabled = player.health >= player.maxHealth ? " disabled" : "";
+    const text = player.health >= player.maxHealth ? "Vida cheia" : "Usar pocao";
+    return `<button type="button" data-inventory-action="usePotion"${disabled}>${text}</button>`;
+  }
+
+  if (item.action === "equipWeapon") {
+    const isEquipped = item.weaponKey === getCurrentWeaponKey();
+    return `<button type="button" data-inventory-action="equipWeapon" data-weapon-key="${item.weaponKey}">${isEquipped ? "Equipado" : "Equipar arma"}</button>`;
+  }
+
+  if (item.action === "equipPower") {
+    const isEquipped = item.powerKey === equippedPower;
+    return `<button type="button" data-inventory-action="equipPower" data-power-key="${item.powerKey}">${isEquipped ? "Equipado no Q" : "Equipar no Q"}</button>`;
+  }
+
+  if (item.locked || item.category === "missao") {
+    return `<button type="button" disabled>Item de missao</button>`;
+  }
+
+  return `<button type="button" disabled>Sem acao</button>`;
+}
+
+function handleInventoryAction(actionButton) {
+  const action = actionButton.dataset.inventoryAction;
+  if (action === "usePotion") {
+    usePotion();
+  } else if (action === "equipWeapon") {
+    equipWeapon(actionButton.dataset.weaponKey);
+  } else if (action === "equipPower") {
+    const slotIndex = powerSlots.indexOf(actionButton.dataset.powerKey);
+    if (slotIndex === -1) {
+      playSound("invalid");
+      showHudToast("Poder desconhecido.");
+    } else {
+      equipPower(slotIndex);
+      playSound("equipItem");
+    }
+  } else {
+    playSound("invalid");
+  }
+
+  renderInventory();
 }
 
 function openShop() {
@@ -5050,11 +5499,25 @@ function buyPotion() {
 }
 
 function usePotion() {
-  if (inventory.pocoes <= 0 || player.health >= player.maxHealth || gameOver) return;
+  if (gameOver) return false;
+  if (inventory.pocoes <= 0) {
+    showHudToast("Voce nao tem pocoes.");
+    playSound("invalid");
+    return false;
+  }
+  if (player.health >= player.maxHealth) {
+    showHudToast("Vida ja esta cheia.");
+    playSound("invalid");
+    return false;
+  }
+
   inventory.pocoes -= 1;
   player.health = Math.min(player.maxHealth, player.health + 1);
+  showHudToast("Pocao usada.");
+  playSound("usePotion");
   renderInventory();
   updateHud();
+  return true;
 }
 
 function takeDamage(amount, sourceX = player.x, sourceY = player.y) {
@@ -5428,7 +5891,9 @@ window.addEventListener("keydown", (event) => {
   }
 
   if (key === "escape") {
-    if (missionsOpen || statusOpen) {
+    if (inventoryOpen) {
+      toggleInventory(false);
+    } else if (missionsOpen || statusOpen) {
       closeOverlayPanels();
     } else {
       setPause(!pauseOpen);
@@ -5693,6 +6158,33 @@ pauseInventoryButton?.addEventListener("click", () => {
 pauseMenuButton?.addEventListener("click", returnToStartMenu);
 closeMissionsButton?.addEventListener("click", () => toggleMissionsPanel(false));
 closeStatusButton?.addEventListener("click", () => toggleStatusPanel(false));
+closeInventoryButton?.addEventListener("click", () => toggleInventory(false));
+inventoryTabs?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-inventory-tab]");
+  if (!button) return;
+  inventoryTab = button.dataset.inventoryTab || "all";
+  selectedInventoryItemId = "";
+  playSound("selectItem");
+  renderInventory();
+});
+inventoryGrid?.addEventListener("click", (event) => {
+  const slot = event.target.closest("[data-item-id]");
+  if (!slot) return;
+  selectedInventoryItemId = slot.dataset.itemId || "";
+  playSound("selectItem");
+  renderInventory();
+});
+itemDetailActions?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-inventory-action]");
+  if (!button || button.disabled) return;
+  handleInventoryAction(button);
+});
+inventoryPanel?.addEventListener("pointerdown", (event) => {
+  event.stopPropagation();
+});
+inventoryPanel?.addEventListener("touchmove", (event) => {
+  event.stopPropagation();
+}, { passive: true });
 
 window.addEventListener("resize", updateDeviceMode);
 window.addEventListener("orientationchange", () => setTimeout(updateDeviceMode, 250));
@@ -5703,3 +6195,7 @@ window.addEventListener("blur", () => {
 updateDeviceMode();
 setupTouchControls();
 requestAnimationFrame(gameLoop);
+
+if (shouldAutoStart) {
+  setTimeout(() => startGame(false), 120);
+}

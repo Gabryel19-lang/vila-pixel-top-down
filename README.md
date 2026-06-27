@@ -32,6 +32,9 @@ Se a tela estiver pequena ou em pe, o jogo mostra o aviso **Vire o celular para 
 4. Selecione a branch `main` e a pasta `/root`.
 5. Salve e aguarde o link do GitHub Pages.
 
+Para abrir direto no jogo, sem parar na tela inicial, use `?play=1` no fim do link.
+Exemplo: `https://seu-usuario.github.io/seu-repositorio/?play=1`.
+
 ### Netlify
 
 1. Acesse Netlify e escolha **Add new site > Import an existing project**.
@@ -102,6 +105,29 @@ Informacoes grandes ficam em paineis:
 - `C` abre o painel de status com vida, mana, defesa, critico, arma, poder e buffs.
 - `Esc` abre o menu principal.
 - `F3` abre ou fecha o debug.
+
+## Bolsa do Aventureiro
+
+O inventario foi reorganizado como uma bolsa central em estilo pixel art.
+
+- `I` abre e fecha a bolsa no PC.
+- No celular, toque no botao **Inv**.
+- O jogo pausa enquanto o inventario esta aberto.
+- Existem 30 slots visiveis, abas por categoria e painel de detalhes.
+- Abas: Tudo, Consumiveis, Armas, Materiais, Missao e Raros.
+- Clique ou toque em uma arma para equipar.
+- Clique ou toque em um poder para equipar no `Q`.
+- Pocoes podem ser usadas pela bolsa quando a vida nao esta cheia.
+- Itens de missao e itens raros aparecem com descricao, quantidade e raridade.
+- A bolsa mostra moedas, pocoes, cristais, chaves, cartas, flechas, espadas, fragmentos, itens de boss, power-ups coletados, armas liberadas e poder equipado.
+
+Raridades:
+
+- Comum
+- Incomum
+- Raro
+- Epico
+- Lendario
 
 ## Portal e Dimensao Cristalina
 
