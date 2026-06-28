@@ -84,6 +84,8 @@ O menu inicial usa um painel central compacto. As informacoes longas de controle
 - `F3`: abrir debug com X/Y, FPS, cena, canvas, `isMobile` e ultimo erro
 - Menu: salvar jogo, reiniciar posicao, ver missoes, status, inventario e ajuda
 
+O menu de pausa do `Esc` usa um overlay fixo sobre a tela inteira. Ele fica centralizado, nao e cortado pelo Canvas e rola por dentro em telas pequenas ou fullscreen.
+
 Progressao:
 
 - Derrote inimigos para ganhar XP.

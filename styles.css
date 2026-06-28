@@ -346,6 +346,80 @@ canvas {
   display: none;
 }
 
+.pause-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: grid;
+  place-items: center;
+  padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+  background: rgba(8, 10, 24, 0.52);
+  box-sizing: border-box;
+  overflow: hidden;
+  pointer-events: auto;
+}
+
+.pause-overlay.hidden {
+  display: none;
+}
+
+.pause-menu {
+  position: relative;
+  display: grid;
+  gap: 7px;
+  width: min(410px, 92vw);
+  max-height: min(86vh, 720px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 0;
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgba(74, 85, 133, 0.98), rgba(36, 45, 82, 0.98)),
+    var(--ui-panel);
+  color: var(--text);
+  padding: 14px;
+  box-shadow:
+    0 0 0 3px var(--ui-border),
+    0 0 0 6px rgba(245, 206, 121, 0.55),
+    0 8px 0 var(--ui-shadow);
+}
+
+.pause-menu::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  top: 5px;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.22);
+  pointer-events: none;
+}
+
+.pause-menu h2 {
+  margin: 0 0 3px;
+  font-size: 1.05rem;
+  line-height: 1.1;
+}
+
+.pause-menu button {
+  width: 100%;
+  min-height: 34px;
+  border: 2px solid var(--ui-border);
+  border-radius: 6px;
+  background: #fff264;
+  color: #273052;
+  cursor: pointer;
+  font-weight: 900;
+  font-size: 0.82rem;
+  padding: 6px 10px;
+  box-shadow: 0 3px 0 var(--ui-shadow);
+}
+
+.pause-menu button:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--ui-shadow);
+}
+
 .touch-button {
   border: 3px solid #1a1f3d;
   background: rgba(255, 242, 100, 0.92);

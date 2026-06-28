@@ -204,16 +204,18 @@
         <p id="infoText"></p>
       </div>
 
-      <div id="pausePanel" class="panel pause-panel hidden">
-        <h2>Menu</h2>
-        <button id="pauseContinueButton" type="button">Continuar</button>
-        <button id="pauseSaveButton" type="button">Salvar jogo</button>
-        <button id="pauseResetButton" type="button">Reiniciar posicao</button>
-        <button id="pauseHowToButton" type="button">Como jogar</button>
-        <button id="pauseMissionsButton" type="button">Missoes</button>
-        <button id="pauseStatusButton" type="button">Status</button>
-        <button id="pauseInventoryButton" type="button">Inventario</button>
-        <button id="pauseMenuButton" type="button">Sair para menu inicial</button>
+      <div id="pausePanel" class="pause-overlay hidden" role="dialog" aria-label="Menu de pausa">
+        <div class="pause-menu">
+          <h2>Menu</h2>
+          <button id="pauseContinueButton" type="button">Continuar</button>
+          <button id="pauseSaveButton" type="button">Salvar jogo</button>
+          <button id="pauseResetButton" type="button">Reiniciar posicao</button>
+          <button id="pauseHowToButton" type="button">Como jogar</button>
+          <button id="pauseMissionsButton" type="button">Missoes</button>
+          <button id="pauseStatusButton" type="button">Status</button>
+          <button id="pauseInventoryButton" type="button">Inventario</button>
+          <button id="pauseMenuButton" type="button">Sair para menu inicial</button>
+        </div>
       </div>
 
       <div id="missionsPanel" class="panel missions-panel hidden">

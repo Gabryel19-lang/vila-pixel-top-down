@@ -101,6 +101,10 @@ if (bossHud && canvas.parentElement && bossHud.parentElement !== canvas.parentEl
   canvas.parentElement.appendChild(bossHud);
 }
 
+if (pausePanel && pausePanel.parentElement !== document.body) {
+  document.body.appendChild(pausePanel);
+}
+
 const urlParams = new URLSearchParams(window.location.search);
 const shouldAutoStart = urlParams.get("play") === "1" || urlParams.get("start") === "1";
 const SAVE_KEY = "gabryel-garcia-o-brabo-save-v1";
@@ -1615,13 +1619,22 @@ function requestGameFullscreen() {
   }
 }
 
+function keepPauseMenuVisible() {
+  if (!pausePanel || pausePanel.classList.contains("hidden")) return;
+  const menu = pausePanel.querySelector(".pause-menu");
+  if (menu) menu.scrollTop = Math.min(menu.scrollTop, Math.max(0, menu.scrollHeight - menu.clientHeight));
+}
+
 function setPause(open) {
   pauseOpen = Boolean(open);
   pausePanel?.classList.toggle("hidden", !pauseOpen);
   if (pauseOpen) {
+    keepPauseMenuVisible();
     closeOverlayPanels();
     if (inventoryOpen) toggleInventory(false);
     closeShop();
+    keys.clear();
+  } else {
     keys.clear();
   }
 }
@@ -6691,6 +6704,10 @@ inventoryPanel?.addEventListener("touchmove", (event) => {
 
 window.addEventListener("resize", updateDeviceMode);
 window.addEventListener("orientationchange", () => setTimeout(updateDeviceMode, 250));
+document.addEventListener("fullscreenchange", () => {
+  updateDeviceMode();
+  setTimeout(keepPauseMenuVisible, 80);
+});
 window.addEventListener("blur", () => {
   if (gameStarted && !gameOver && isMobile) setPause(true);
 });
