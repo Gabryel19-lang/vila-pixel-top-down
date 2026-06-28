@@ -328,3 +328,22 @@ No celular, a arena de teste mais rapida fica perto da placa **TESTE DE COMBATE*
 - `index.html`: estrutura da pagina e elementos da interface
 - `styles.css`: visual da pagina, HUD e caixa de dialogo
 - `app.js`: logica do jogo, mapa, desenho no Canvas, movimento e colisoes
+
+
+## Atualizacao visual
+
+Esta versao adiciona texturas mais ricas ao mapa externo, interiores de casas mais decorados, novos objetos decorativos e sprites de personagens com mais detalhes, mantendo HTML, CSS e JavaScript puro.
+
+## Atualizacao visual V2
+
+Esta versao reforca o visual do Eternal Rift com mais acabamento de RPG 2D pixel art em Canvas puro:
+
+- textura da grama, caminhos, praca e agua com mais variacao;
+- casas externas com telhados, janelas, portas, chamine, floreiras e detalhes melhores;
+- praca central com postes, floreiras, pedras e decoracao ao redor do portal;
+- interiores com piso de madeira, paredes, tapetes, janelas, quadros, sofa, mesa, lareira, cozinha, estantes e plantas;
+- variacoes simples para casa, loja e casa do prefeito;
+- personagem, NPCs e inimigos com leitura visual melhor;
+- bosses com aura visual para ficarem mais marcantes.
+
+Validacao feita: `node --check app.js`.

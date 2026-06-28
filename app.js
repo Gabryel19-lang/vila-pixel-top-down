@@ -6719,3 +6719,1540 @@ requestAnimationFrame(gameLoop);
 if (shouldAutoStart) {
   setTimeout(() => startGame(false), 120);
 }
+
+
+/* ==================================================
+   Eternal Rift - Visual upgrade patch
+   Inspirado em RPG 2D pixel art, mantendo Canvas puro.
+   ================================================== */
+
+function visualHash(tileX, tileY, salt = 0) {
+  const raw = Math.sin(tileX * 127.1 + tileY * 311.7 + salt * 43.13) * 43758.5453123;
+  return raw - Math.floor(raw);
+}
+
+function drawPixelSpark(x, y, color, shadow = "rgba(26, 31, 61, 0.35)") {
+  ctx.fillStyle = shadow;
+  ctx.fillRect(Math.round(x) - 1, Math.round(y), 4, 2);
+  ctx.fillStyle = color;
+  ctx.fillRect(Math.round(x), Math.round(y), 2, 2);
+}
+
+function drawSoftShadow(x, y, width, height, alpha = 0.22) {
+  ctx.fillStyle = `rgba(26, 31, 61, ${alpha})`;
+  ctx.fillRect(Math.round(x), Math.round(y), Math.round(width), Math.round(height));
+}
+
+function drawTilePebbles(x, y, tileX, tileY, colorA, colorB) {
+  if (visualHash(tileX, tileY, 1) > 0.44) {
+    ctx.fillStyle = colorA;
+    ctx.fillRect(x + 5 + Math.floor(visualHash(tileX, tileY, 2) * 8), y + 6, 3, 2);
+  }
+  if (visualHash(tileX, tileY, 3) > 0.58) {
+    ctx.fillStyle = colorB;
+    ctx.fillRect(x + 20, y + 18 + Math.floor(visualHash(tileX, tileY, 4) * 7), 4, 2);
+  }
+}
+
+function drawGrassTuft(x, y, offsetX, offsetY, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(x + offsetX, y + offsetY + 4, 2, 7);
+  ctx.fillRect(x + offsetX + 2, y + offsetY + 2, 2, 9);
+  ctx.fillRect(x + offsetX + 4, y + offsetY + 5, 2, 5);
+}
+
+function drawGrass(x, y, tileX, tileY) {
+  const variant = visualHash(tileX, tileY, 10);
+  const base = variant < 0.34 ? "#83d873" : variant < 0.67 ? "#8ee47c" : "#78ca67";
+  ctx.fillStyle = base;
+  ctx.fillRect(x, y, TILE, TILE);
+
+  ctx.fillStyle = "rgba(255, 255, 210, 0.08)";
+  if (visualHash(tileX, tileY, 11) > 0.54) ctx.fillRect(x, y, TILE, 3);
+  ctx.fillStyle = "rgba(39, 92, 61, 0.10)";
+  if (visualHash(tileX, tileY, 12) > 0.5) ctx.fillRect(x, y + TILE - 4, TILE, 4);
+
+  if (visualHash(tileX, tileY, 13) > 0.24) drawGrassTuft(x, y, 6, 17, "#2f8b60");
+  if (visualHash(tileX, tileY, 14) > 0.62) drawGrassTuft(x, y, 22, 7, "#3fa164");
+  if (visualHash(tileX, tileY, 15) > 0.84) {
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x + 15, y + 15, 2, 2);
+    ctx.fillStyle = "#ff7ab5";
+    ctx.fillRect(x + 18, y + 16, 2, 2);
+  }
+}
+
+function drawForestGrass(x, y, tileX, tileY) {
+  const variant = visualHash(tileX, tileY, 20);
+  ctx.fillStyle = variant < 0.5 ? "#68bb64" : "#5fb45d";
+  ctx.fillRect(x, y, TILE, TILE);
+  ctx.fillStyle = "rgba(23, 73, 45, 0.18)";
+  ctx.fillRect(x, y + TILE - 5, TILE, 5);
+  drawGrassTuft(x, y, 4, 6, "#236f48");
+  if (visualHash(tileX, tileY, 21) > 0.38) drawGrassTuft(x, y, 20, 16, "#2e844e");
+  if (visualHash(tileX, tileY, 22) > 0.7) {
+    ctx.fillStyle = "#bdf25a";
+    ctx.fillRect(x + 11, y + 24, 4, 2);
+    ctx.fillRect(x + 15, y + 21, 2, 4);
+  }
+}
+
+function drawDirt(x, y, tileX, tileY) {
+  const variant = visualHash(tileX, tileY, 30);
+  ctx.fillStyle = variant < 0.36 ? "#ad6c4e" : variant < 0.72 ? "#9b5b43" : "#b87552";
+  ctx.fillRect(x, y, TILE, TILE);
+  ctx.fillStyle = "rgba(82, 45, 39, 0.32)";
+  ctx.fillRect(x, y + TILE - 4, TILE, 4);
+  ctx.fillStyle = "rgba(255, 229, 166, 0.16)";
+  if (visualHash(tileX, tileY, 31) > 0.48) ctx.fillRect(x + 3, y + 6, 18, 3);
+  if (visualHash(tileX, tileY, 32) > 0.48) ctx.fillRect(x + 13, y + 19, 14, 3);
+  drawTilePebbles(x, y, tileX, tileY, "#6f463f", "#d99b67");
+}
+
+function drawPlaza(x, y, tileX, tileY) {
+  const variant = visualHash(tileX, tileY, 40);
+  ctx.fillStyle = variant < 0.5 ? "#e8c382" : "#d9b475";
+  ctx.fillRect(x, y, TILE, TILE);
+  ctx.strokeStyle = "rgba(91, 70, 61, 0.55)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, TILE - 1, TILE - 1);
+  ctx.fillStyle = "rgba(255, 246, 202, 0.28)";
+  if ((tileX + tileY) % 2 === 0) ctx.fillRect(x + 5, y + 5, 9, 3);
+  if ((tileX * 3 + tileY) % 4 === 0) ctx.fillRect(x + 19, y + 21, 8, 3);
+  ctx.fillStyle = "rgba(116, 84, 64, 0.22)";
+  if (visualHash(tileX, tileY, 41) > 0.65) ctx.fillRect(x + 2, y + 27, 28, 2);
+}
+
+function drawWater(x, y, tileX, tileY) {
+  const time = performance.now() / 450;
+  const wave = Math.sin(time + tileX * 0.6 + tileY * 0.4) * 2;
+  ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#3c99dd" : "#338bd0";
+  ctx.fillRect(x, y, TILE, TILE);
+  ctx.fillStyle = "rgba(17, 81, 145, 0.28)";
+  ctx.fillRect(x, y + TILE - 5, TILE, 5);
+  ctx.fillStyle = "rgba(137, 224, 255, 0.72)";
+  ctx.fillRect(x + 4, y + 9 + wave, 10, 2);
+  ctx.fillRect(x + 17, y + 18 - wave, 11, 2);
+  ctx.fillStyle = "rgba(233, 255, 255, 0.35)";
+  if (visualHash(tileX, tileY, 50) > 0.68) ctx.fillRect(x + 9, y + 23, 5, 2);
+}
+
+function drawInteriorFloor(x, y, tileX, tileY) {
+  const variant = visualHash(tileX, tileY, 60);
+  ctx.fillStyle = variant < 0.5 ? "#c98a57" : "#b9794b";
+  ctx.fillRect(x, y, TILE, TILE);
+  ctx.fillStyle = "rgba(78, 47, 35, 0.35)";
+  ctx.fillRect(x, y + 15, TILE, 2);
+  ctx.fillRect(x, y + 31, TILE, 1);
+  ctx.fillStyle = "rgba(255, 220, 155, 0.18)";
+  if (visualHash(tileX, tileY, 61) > 0.55) ctx.fillRect(x + 7, y + 6, 12, 2);
+  if (visualHash(tileX, tileY, 62) > 0.62) ctx.fillRect(x + 20, y + 22, 6, 2);
+}
+
+function drawInteriorWall(x, y, tileX, tileY) {
+  const isTop = tileY === 0;
+  ctx.fillStyle = isTop ? "#9bbfe0" : "#7d6a80";
+  ctx.fillRect(x, y, TILE, TILE);
+  ctx.fillStyle = isTop ? "rgba(236, 249, 255, 0.24)" : "rgba(255, 234, 176, 0.12)";
+  ctx.fillRect(x + 4, y + 5, 9, 3);
+  if ((tileX + tileY) % 3 === 0) ctx.fillRect(x + 18, y + 17, 7, 3);
+  ctx.fillStyle = "#273052";
+  if (isTop) ctx.fillRect(x, y + TILE - 5, TILE, 5);
+}
+
+function drawRug(x, y, tileX, tileY) {
+  ctx.fillStyle = (tileX + tileY) % 2 === 0 ? "#c8465e" : "#a93b55";
+  ctx.fillRect(x, y, TILE, TILE);
+  ctx.fillStyle = "#7f2e49";
+  ctx.fillRect(x, y, TILE, 3);
+  ctx.fillRect(x, y + TILE - 3, TILE, 3);
+  ctx.fillStyle = "rgba(255, 242, 100, 0.32)";
+  ctx.fillRect(x + 9, y + 8, 14, 4);
+  ctx.fillRect(x + 12, y + 16, 8, 8);
+}
+
+function drawObject(obj) {
+  if (obj.type === "outdoorDecor") return drawOutdoorDecor(obj);
+  if (obj.type === "furniture") return drawFurniture(obj);
+  if (obj.type === "house") return drawHouse(obj);
+  if (obj.type === "playerHouse") return drawPlayerHouse(obj);
+  if (obj.type === "shop") return drawShop(obj);
+  if (obj.type === "tree") return drawTree(obj);
+  if (obj.type === "fence") return drawFence(obj);
+  if (obj.type === "sign") return drawSign(obj);
+  if (obj.type === "well") return drawWell(obj);
+  if (obj.type === "bench") return drawBench(obj);
+  if (obj.type === "portal") return drawPortal(obj);
+  if (obj.type === "dimensionPortal") return drawPortal(obj);
+  if (obj.type === "dimensionBlocker") return drawDimensionBlocker(obj);
+  if (obj.type === "dimensionCrystal") return drawDimensionCrystal(obj);
+  if (obj.type === "dimensionChest") return drawDimensionChest(obj);
+  if (obj.type === "dimensionSign") return drawDimensionSign(obj);
+  if (obj.type === "talkingStone") return drawTalkingStone(obj);
+  if (obj.type === "magicFountain") return drawMagicFountain(obj);
+  if (obj.type === "largeCrystal") return drawLargeCrystal(obj);
+  if (obj.type === "strangeTree") return drawStrangeTree(obj);
+  if (obj.type === "floatingRock") return drawFloatingRock(obj);
+  if (obj.type === "secretStone") return drawSecretStone(obj);
+  if (obj.type === "cave") return drawCave(obj);
+  if (obj.type === "bed") return drawBed(obj);
+  if (obj.type === "table") return drawTable(obj);
+  if (obj.type === "counter") return drawCounter(obj);
+  if (obj.type === "mayorDesk") return drawMayorDesk(obj);
+  if (obj.type === "bookshelf") return drawBookshelf(obj);
+  if (obj.type === "chest") return drawChest(obj);
+  if (obj.type === "rareChest") return drawRareChest(obj);
+  if (obj.type === "plant") return drawPlant(obj);
+  if (obj.type === "flower") return drawFlower(obj);
+  if (obj.type === "rock") return drawRock(obj);
+  if (obj.type === "crystal") return drawCrystal(obj);
+  if (obj.type === "collectible") return drawCollectible(obj);
+  if (obj.type === "loot") return drawLootItem(obj);
+  if (obj.type === "powerUp") return drawPowerUp(obj);
+  if (obj.type === "enemy") return drawEnemy(obj);
+  if (obj.type === "npc") return drawNpc(obj);
+}
+
+function drawHouse(obj) {
+  const x = obj.x;
+  const y = obj.y;
+  const variant = visualHash(Math.floor(x / TILE), Math.floor(y / TILE), obj.title?.length || 0);
+  const roofColor = variant < 0.25 ? "#c94a5c" : variant < 0.5 ? "#d68045" : variant < 0.75 ? "#4c86d9" : "#9b5fc7";
+  const wallColor = variant < 0.5 ? "#e5d1aa" : "#d8c2a0";
+
+  drawSoftShadow(x + 7, y + obj.height - 4, obj.width - 8, 10, 0.26);
+
+  ctx.fillStyle = "#273052";
+  ctx.fillRect(x + 4, y + 34, obj.width - 8, obj.height - 34);
+  ctx.fillStyle = wallColor;
+  ctx.fillRect(x + 8, y + 38, obj.width - 16, obj.height - 42);
+  ctx.fillStyle = "rgba(121, 88, 70, 0.18)";
+  for (let yy = y + 43; yy < y + obj.height - 14; yy += 14) {
+    ctx.fillRect(x + 10, yy, obj.width - 20, 2);
+  }
+  ctx.fillStyle = "rgba(255, 255, 235, 0.24)";
+  ctx.fillRect(x + 14, y + 44, 30, 4);
+  ctx.fillRect(x + 72, y + 48, 32, 4);
+
+  ctx.fillStyle = "#273052";
+  ctx.fillRect(x - 5, y + 14, obj.width + 10, 31);
+  ctx.fillStyle = roofColor;
+  ctx.fillRect(x - 1, y + 18, obj.width + 2, 23);
+  ctx.fillStyle = "rgba(255, 245, 207, 0.18)";
+  for (let rx = x + 6; rx < x + obj.width - 8; rx += 18) ctx.fillRect(rx, y + 22, 10, 5);
+  ctx.fillStyle = "rgba(91, 39, 53, 0.22)";
+  ctx.fillRect(x - 1, y + 36, obj.width + 2, 5);
+  pixelRect(x + 88, y + 3, 15, 25, "#a36a46");
+  ctx.fillStyle = "#f3c77a";
+  ctx.fillRect(x + 92, y + 7, 7, 4);
+
+  pixelRect(x + 24, y + 60, 23, 32, "#93583d");
+  ctx.fillStyle = "#f5ce79";
+  ctx.fillRect(x + 39, y + 75, 3, 3);
+  ctx.fillStyle = "rgba(35, 31, 42, 0.28)";
+  ctx.fillRect(x + 27, y + 87, 17, 3);
+
+  drawHouseWindow(x + 73, y + 56, "#63c8f5");
+  drawHouseWindow(x + 12, y + 50, "#9ee6ff");
+
+  ctx.fillStyle = "#7bdb73";
+  ctx.fillRect(x + 72, y + 77, 28, 5);
+  ctx.fillStyle = "#ff7ab5";
+  ctx.fillRect(x + 78, y + 73, 3, 3);
+  ctx.fillStyle = "#fff264";
+  ctx.fillRect(x + 89, y + 74, 3, 3);
+}
+
+function drawHouseWindow(x, y, glass) {
+  pixelRect(x, y, 25, 21, glass);
+  ctx.fillStyle = "#e9ffff";
+  ctx.fillRect(x + 5, y + 4, 7, 4);
+  ctx.fillStyle = "#273052";
+  ctx.fillRect(x + 11, y, 3, 21);
+  ctx.fillRect(x, y + 9, 25, 3);
+}
+
+function drawPlayerHouse(obj) {
+  drawHouse({ ...obj, title: "Minha Casa" });
+  const x = obj.x;
+  const y = obj.y;
+  ctx.fillStyle = "#fff264";
+  ctx.fillRect(x + 55, y + 20, 13, 12);
+  ctx.fillStyle = "#273052";
+  ctx.fillRect(x + 59, y + 23, 5, 7);
+  ctx.fillStyle = "#55e8ff";
+  ctx.fillRect(x + 60, y + 21, 3, 3);
+}
+
+function drawShop(obj) {
+  drawHouse({ ...obj, title: "Loja" });
+  const x = obj.x;
+  const y = obj.y;
+  pixelRect(x + 33, y + 42, 60, 15, "#fff264");
+  ctx.fillStyle = "#273052";
+  ctx.fillRect(x + 40, y + 47, 7, 4);
+  ctx.fillRect(x + 52, y + 47, 7, 4);
+  ctx.fillRect(x + 64, y + 47, 7, 4);
+  ctx.fillRect(x + 76, y + 47, 7, 4);
+  ctx.fillStyle = "#d24c63";
+  ctx.fillRect(x + 98, y + 54, 9, 18);
+  ctx.fillStyle = "#fff264";
+  ctx.fillRect(x + 100, y + 58, 5, 5);
+}
+
+function drawTree(obj) {
+  const x = obj.x;
+  const y = obj.y;
+  drawSoftShadow(x + 2, y + 56, 30, 7, 0.24);
+  pixelRect(x + 11, y + 34, 12, 27, "#8c5a3e");
+  ctx.fillStyle = "#b87955";
+  ctx.fillRect(x + 15, y + 38, 3, 17);
+
+  ctx.fillStyle = "#273052";
+  ctx.fillRect(x + 6, y + 11, 22, 22);
+  ctx.fillRect(x, y + 24, 32, 24);
+  ctx.fillRect(x + 8, y + 4, 20, 18);
+  ctx.fillRect(x + 3, y + 16, 27, 20);
+  ctx.fillStyle = "#6fc95b";
+  ctx.fillRect(x + 8, y + 13, 18, 19);
+  ctx.fillRect(x + 3, y + 25, 26, 17);
+  ctx.fillRect(x + 10, y + 7, 15, 16);
+  ctx.fillStyle = "#93e665";
+  ctx.fillRect(x + 11, y + 10, 8, 5);
+  ctx.fillRect(x + 18, y + 22, 7, 4);
+  ctx.fillStyle = "#4ca84e";
+  ctx.fillRect(x + 5, y + 37, 11, 5);
+  ctx.fillRect(x + 19, y + 31, 7, 5);
+}
+
+function drawFence(obj) {
+  const dark = "#273052";
+  const wood = "#d99b67";
+  const light = "#f4c27c";
+  if (obj.direction === "horizontal") {
+    for (let x = obj.x; x < obj.x + obj.width; x += TILE) {
+      pixelRect(x + 4, obj.y + 7, 8, 23, wood, dark);
+      pixelRect(x + 20, obj.y + 7, 8, 23, wood, dark);
+      ctx.fillStyle = light;
+      ctx.fillRect(x + 6, obj.y + 10, 3, 6);
+    }
+    pixelRect(obj.x, obj.y + 13, obj.width, 7, wood, dark);
+    ctx.fillStyle = "rgba(115, 70, 47, 0.45)";
+    ctx.fillRect(obj.x + 2, obj.y + 18, obj.width - 4, 2);
+  } else {
+    for (let y = obj.y; y < obj.y + obj.height; y += TILE) {
+      pixelRect(obj.x + 7, y + 4, 23, 8, wood, dark);
+      pixelRect(obj.x + 7, y + 20, 23, 8, wood, dark);
+    }
+    pixelRect(obj.x + 13, obj.y, 7, obj.height, wood, dark);
+  }
+}
+
+function drawSign(obj) {
+  pixelRect(obj.x + 7, obj.y + 10, 5, 18, "#8f5a3f");
+  pixelRect(obj.x - 1, obj.y, 21, 15, "#e9b56f");
+  ctx.fillStyle = "#7b4b38";
+  ctx.fillRect(obj.x + 4, obj.y + 5, 12, 2);
+  ctx.fillRect(obj.x + 6, obj.y + 9, 8, 2);
+}
+
+function drawWell(obj) {
+  drawSoftShadow(obj.x + 2, obj.y + 22, 27, 7, 0.24);
+  pixelRect(obj.x + 3, obj.y + 10, 22, 16, "#9298a7");
+  ctx.fillStyle = "#273052";
+  ctx.fillRect(obj.x + 6, obj.y + 13, 16, 8);
+  ctx.fillStyle = "#55e8ff";
+  ctx.fillRect(obj.x + 9, obj.y + 15, 10, 3);
+  pixelRect(obj.x + 1, obj.y + 3, 26, 8, "#c94a5c");
+  pixelRect(obj.x + 4, obj.y, 5, 15, "#8b5a3f");
+  pixelRect(obj.x + 20, obj.y, 5, 15, "#8b5a3f");
+}
+
+function drawBench(obj) {
+  drawSoftShadow(obj.x + 1, obj.y + obj.height - 2, obj.width, 5, 0.22);
+  pixelRect(obj.x, obj.y, obj.width, obj.height, "#d99b67");
+  ctx.fillStyle = "#8f5a3f";
+  if (obj.direction === "horizontal") {
+    ctx.fillRect(obj.x + 4, obj.y + 3, obj.width - 8, 2);
+    ctx.fillRect(obj.x + 4, obj.y + 8, obj.width - 8, 2);
+  } else {
+    ctx.fillRect(obj.x + 3, obj.y + 4, 2, obj.height - 8);
+    ctx.fillRect(obj.x + 8, obj.y + 4, 2, obj.height - 8);
+  }
+}
+
+function drawPortal(obj) {
+  const pulse = Math.sin(performance.now() / 260) * 4;
+  const time = performance.now();
+  const mainColor = obj.type === "dimensionPortal" ? "#ff72dc" : "#55e8ff";
+  const lightColor = obj.type === "dimensionPortal" ? "#ffe4fb" : "#e9ffff";
+  const x = obj.x;
+  const y = obj.y;
+
+  ctx.fillStyle = obj.type === "dimensionPortal" ? "rgba(255, 114, 220, 0.23)" : "rgba(85, 232, 255, 0.23)";
+  ctx.fillRect(x - 2, y + 19, 68, 72);
+  drawSoftShadow(x + 5, y + 82, 55, 8, 0.25);
+  pixelRect(x + 3, y + 15, 13, 73, "#918c9e");
+  pixelRect(x + 48, y + 15, 13, 73, "#918c9e");
+  pixelRect(x + 8, y + 8, 48, 13, "#a0a4b8");
+  ctx.fillStyle = "#fff264";
+  ctx.fillRect(x + 28, y + 10, 8, 7);
+
+  ctx.save();
+  ctx.translate(x + 32, y + 55);
+  ctx.rotate(time / 900);
+  ctx.strokeStyle = mainColor;
+  ctx.lineWidth = 3;
+  ctx.strokeRect(-14, -23, 28, 46);
+  ctx.restore();
+
+  ctx.fillStyle = mainColor;
+  ctx.fillRect(x + 21, y + 28 + pulse, 22, 44 - pulse);
+  ctx.fillStyle = lightColor;
+  ctx.fillRect(x + 28, y + 36 + pulse, 8, 24);
+
+  for (let i = 0; i < 10; i++) {
+    const angle = time / 520 + i * 0.68;
+    const px = x + 32 + Math.cos(angle) * (28 + i % 2 * 7);
+    const py = y + 54 + Math.sin(angle) * (34 + i % 3 * 4);
+    drawPixelSpark(px, py, i % 2 === 0 ? mainColor : lightColor);
+  }
+}
+
+function drawBed(obj) {
+  drawSoftShadow(obj.x + 1, obj.y + obj.height - 2, obj.width, 5, 0.22);
+  pixelRect(obj.x, obj.y, obj.width, obj.height, "#7b4b5f");
+  ctx.fillStyle = "#f4e1bf";
+  ctx.fillRect(obj.x + 8, obj.y + 8, obj.width - 16, 18);
+  ctx.fillStyle = "#d24c63";
+  ctx.fillRect(obj.x + 8, obj.y + 30, obj.width - 16, obj.height - 38);
+  ctx.fillStyle = "rgba(255, 242, 100, 0.22)";
+  ctx.fillRect(obj.x + 16, obj.y + 38, obj.width - 32, 5);
+}
+
+function drawTable(obj) {
+  drawSoftShadow(obj.x + 3, obj.y + obj.height - 2, obj.width - 6, 6, 0.2);
+  pixelRect(obj.x, obj.y, obj.width, obj.height, "#9b613f");
+  ctx.fillStyle = "#d99b67";
+  ctx.fillRect(obj.x + 8, obj.y + 8, obj.width - 16, 15);
+  ctx.fillStyle = "#fff3d6";
+  ctx.fillRect(obj.x + 20, obj.y + 13, 17, 8);
+  ctx.fillStyle = "#7bdb73";
+  ctx.fillRect(obj.x + 53, obj.y + 10, 9, 12);
+}
+
+function drawCounter(obj) {
+  pixelRect(obj.x, obj.y, obj.width, obj.height, "#a56b44");
+  ctx.fillStyle = "#d99b67";
+  ctx.fillRect(obj.x + 8, obj.y + 8, obj.width - 16, 12);
+  ctx.fillStyle = "#8f5a3f";
+  for (let x = obj.x + 12; x < obj.x + obj.width - 12; x += 42) ctx.fillRect(x, obj.y + 24, 24, 8);
+  ctx.fillStyle = "#d24c63";
+  ctx.fillRect(obj.x + 70, obj.y + 18, 16, 16);
+  ctx.fillStyle = "#55e8ff";
+  ctx.fillRect(obj.x + 132, obj.y + 16, 16, 18);
+  ctx.fillStyle = "#fff264";
+  ctx.fillRect(obj.x + 200, obj.y + 19, 11, 11);
+}
+
+function drawMayorDesk(obj) {
+  pixelRect(obj.x, obj.y, obj.width, obj.height, "#7d4d38");
+  ctx.fillStyle = "#b87955";
+  ctx.fillRect(obj.x + 8, obj.y + 8, obj.width - 16, obj.height - 16);
+  ctx.fillStyle = "#fff3d6";
+  ctx.fillRect(obj.x + 24, obj.y + 18, 34, 22);
+  ctx.fillRect(obj.x + 96, obj.y + 22, 42, 18);
+  ctx.fillStyle = "#fff264";
+  ctx.fillRect(obj.x + obj.width / 2 - 8, obj.y + 48, 16, 12);
+  ctx.fillStyle = "#55e8ff";
+  ctx.fillRect(obj.x + obj.width / 2 - 3, obj.y + 51, 6, 5);
+}
+
+function drawBookshelf(obj) {
+  pixelRect(obj.x, obj.y, obj.width, obj.height, "#854f38");
+  ctx.fillStyle = "#273052";
+  ctx.fillRect(obj.x + 7, obj.y + 22, obj.width - 14, 4);
+  ctx.fillRect(obj.x + 7, obj.y + 50, obj.width - 14, 4);
+  const books = ["#55c4ff", "#d24c63", "#fff264", "#7bdb73", "#b46dff"];
+  for (let i = 0; i < 8; i++) {
+    ctx.fillStyle = books[i % books.length];
+    const bx = obj.x + 10 + (i % 4) * 11;
+    const by = obj.y + 7 + Math.floor(i / 4) * 28;
+    ctx.fillRect(bx, by, 7, 15);
+  }
+}
+
+function drawChest(obj) {
+  drawSoftShadow(obj.x + 2, obj.y + obj.height - 1, obj.width - 2, 5, 0.2);
+  pixelRect(obj.x, obj.y + 4, obj.width, obj.height - 4, "#9b613f");
+  ctx.fillStyle = "#f5ce79";
+  ctx.fillRect(obj.x + obj.width / 2 - 4, obj.y + 14, 8, 8);
+  ctx.fillStyle = "rgba(255, 242, 100, 0.2)";
+  ctx.fillRect(obj.x + 6, obj.y + 8, obj.width - 12, 4);
+}
+
+function drawPlant(obj) {
+  pixelRect(obj.x + 5, obj.y + 18, 14, 14, "#b44d60");
+  ctx.fillStyle = "#26794d";
+  ctx.fillRect(obj.x + 10, obj.y + 8, 4, 14);
+  ctx.fillStyle = "#7bdb73";
+  ctx.fillRect(obj.x + 4, obj.y + 3, 10, 8);
+  ctx.fillRect(obj.x + 12, obj.y, 10, 9);
+  ctx.fillStyle = "#bdf25a";
+  ctx.fillRect(obj.x + 8, obj.y + 5, 5, 3);
+}
+
+function drawFlower(obj) {
+  const colors = { pink: "#ff7ab5", yellow: "#fff264", blue: "#55c4ff" };
+  ctx.fillStyle = "#26794d";
+  ctx.fillRect(obj.x + 5, obj.y + 5, 2, 8);
+  ctx.fillStyle = "#273052";
+  ctx.fillRect(obj.x + 2, obj.y, 9, 9);
+  ctx.fillStyle = colors[obj.color] || colors.pink;
+  ctx.fillRect(obj.x + 3, obj.y + 1, 3, 3);
+  ctx.fillRect(obj.x + 7, obj.y + 1, 3, 3);
+  ctx.fillRect(obj.x + 5, obj.y + 4, 3, 3);
+  ctx.fillStyle = "#fff3d6";
+  ctx.fillRect(obj.x + 6, obj.y + 3, 1, 1);
+}
+
+function drawRock(obj) {
+  drawSoftShadow(obj.x + 1, obj.y + 13, 17, 4, 0.2);
+  ctx.fillStyle = "#273052";
+  ctx.fillRect(obj.x + 1, obj.y + 5, 16, 10);
+  ctx.fillStyle = "#8f98a5";
+  ctx.fillRect(obj.x + 3, obj.y + 6, 12, 7);
+  ctx.fillStyle = "#c8d0d8";
+  ctx.fillRect(obj.x + 6, obj.y + 4, 7, 4);
+  ctx.fillStyle = "rgba(39, 48, 82, 0.25)";
+  ctx.fillRect(obj.x + 4, obj.y + 12, 10, 2);
+}
+
+function drawCrystal(obj) {
+  const pulse = Math.sin(performance.now() / 180) * 2;
+  const y = obj.y + pulse;
+  ctx.fillStyle = "rgba(85, 196, 255, 0.35)";
+  ctx.fillRect(obj.x - 5, obj.y + 18, 26, 8);
+  ctx.fillStyle = "#273052";
+  ctx.fillRect(obj.x + 5, y, 7, 6);
+  ctx.fillRect(obj.x + 2, y + 5, 13, 14);
+  ctx.fillRect(obj.x + 5, y + 18, 7, 6);
+  ctx.fillStyle = "#55e8ff";
+  ctx.fillRect(obj.x + 6, y + 2, 5, 5);
+  ctx.fillRect(obj.x + 4, y + 7, 9, 10);
+  ctx.fillRect(obj.x + 7, y + 17, 4, 4);
+  ctx.fillStyle = "#e9ffff";
+  ctx.fillRect(obj.x + 6, y + 8, 3, 5);
+  drawPixelSpark(obj.x + 17, obj.y + 3 + pulse, "#fff264");
+}
+
+function drawFurniture(obj) {
+  const x = obj.x;
+  const y = obj.y;
+  const kind = obj.kind;
+  if (kind === "chair") {
+    drawSoftShadow(x + 2, y + 21, 24, 5, 0.18);
+    pixelRect(x + 4, y + 7, 22, 18, "#9b613f");
+    ctx.fillStyle = "#d99b67";
+    ctx.fillRect(x + 8, y + 11, 14, 8);
+    return;
+  }
+  if (kind === "armoire") {
+    pixelRect(x, y, obj.width, obj.height, "#7d4d38");
+    ctx.fillStyle = "#b87955";
+    ctx.fillRect(x + 8, y + 8, obj.width - 16, obj.height - 16);
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + obj.width / 2 - 2, y + 7, 4, obj.height - 14);
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x + obj.width / 2 - 8, y + 34, 3, 3);
+    ctx.fillRect(x + obj.width / 2 + 5, y + 34, 3, 3);
+    return;
+  }
+  if (kind === "barrel") {
+    drawSoftShadow(x + 2, y + 25, 26, 5, 0.18);
+    pixelRect(x + 4, y + 4, 24, 27, "#9b613f");
+    ctx.fillStyle = "#d99b67";
+    ctx.fillRect(x + 7, y + 8, 18, 5);
+    ctx.fillRect(x + 7, y + 22, 18, 5);
+    return;
+  }
+  if (kind === "stove") {
+    pixelRect(x, y + 6, obj.width, obj.height - 6, "#6d5c75");
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 9, y + 18, obj.width - 18, 16);
+    ctx.fillStyle = "#ff8a4b";
+    ctx.fillRect(x + 17, y + 23, 14, 7);
+    ctx.fillStyle = "#f5ce79";
+    ctx.fillRect(x + 22, y + 21, 5, 5);
+    return;
+  }
+  if (kind === "window") {
+    drawHouseWindow(x + 4, y + 5, "#73d5ff");
+    ctx.fillStyle = "#f5ce79";
+    ctx.fillRect(x + 2, y + 27, 34, 4);
+    return;
+  }
+  if (kind === "painting") {
+    pixelRect(x + 2, y + 5, obj.width - 4, obj.height - 10, "#f5ce79");
+    ctx.fillStyle = "#3f8fe5";
+    ctx.fillRect(x + 8, y + 10, obj.width - 16, obj.height - 20);
+    ctx.fillStyle = "#7bdb73";
+    ctx.fillRect(x + 9, y + obj.height - 14, obj.width - 18, 5);
+    return;
+  }
+  if (kind === "lamp") {
+    pixelRect(x + 13, y + 10, 6, 18, "#8f5a3f");
+    ctx.fillStyle = "rgba(255, 242, 100, 0.32)";
+    ctx.fillRect(x + 5, y + 3, 22, 16);
+    pixelRect(x + 8, y + 4, 16, 12, "#fff264");
+    return;
+  }
+  if (kind === "vase") {
+    pixelRect(x + 9, y + 17, 14, 13, "#c94a5c");
+    ctx.fillStyle = "#26794d";
+    ctx.fillRect(x + 15, y + 7, 3, 11);
+    ctx.fillStyle = "#7bdb73";
+    ctx.fillRect(x + 9, y + 5, 9, 6);
+    ctx.fillRect(x + 16, y + 3, 9, 7);
+    return;
+  }
+  if (kind === "shelf") {
+    pixelRect(x, y + 8, obj.width, 18, "#8f5a3f");
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x + 10, y + 5, 8, 8);
+    ctx.fillStyle = "#55e8ff";
+    ctx.fillRect(x + 26, y + 4, 7, 9);
+    ctx.fillStyle = "#d24c63";
+    ctx.fillRect(x + 42, y + 6, 9, 7);
+    return;
+  }
+  if (kind === "rugSmall") {
+    ctx.fillStyle = "#7f2e49";
+    ctx.fillRect(x + 2, y + 7, obj.width - 4, obj.height - 14);
+    ctx.fillStyle = "#d24c63";
+    ctx.fillRect(x + 5, y + 10, obj.width - 10, obj.height - 20);
+    ctx.fillStyle = "rgba(255, 242, 100, 0.3)";
+    ctx.fillRect(x + obj.width / 2 - 11, y + obj.height / 2 - 3, 22, 6);
+    return;
+  }
+  if (kind === "crate") {
+    pixelRect(x + 3, y + 5, 26, 23, "#a56b44");
+    ctx.fillStyle = "#7d4d38";
+    ctx.fillRect(x + 7, y + 9, 18, 3);
+    ctx.fillRect(x + 14, y + 9, 3, 15);
+    return;
+  }
+  pixelRect(x + 4, y + 4, obj.width - 8, obj.height - 8, "#b87955");
+}
+
+function drawOutdoorDecor(obj) {
+  const x = obj.x;
+  const y = obj.y;
+  const kind = obj.kind;
+  if (kind === "barrel") return drawFurniture({ ...obj, type: "furniture", kind: "barrel" });
+  if (kind === "crate") return drawFurniture({ ...obj, type: "furniture", kind: "crate" });
+  if (kind === "lantern") {
+    pixelRect(x + 13, y + 8, 6, 24, "#8f5a3f");
+    ctx.fillStyle = "rgba(255, 242, 100, 0.28)";
+    ctx.fillRect(x + 2, y, 28, 22);
+    pixelRect(x + 8, y + 3, 16, 15, "#fff264");
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 12, y + 5, 2, 11);
+    ctx.fillRect(x + 18, y + 5, 2, 11);
+    return;
+  }
+  if (kind === "flowerPot") {
+    pixelRect(x + 8, y + 17, 16, 13, "#c94a5c");
+    ctx.fillStyle = "#26794d";
+    ctx.fillRect(x + 15, y + 8, 3, 10);
+    ctx.fillStyle = "#ff7ab5";
+    ctx.fillRect(x + 10, y + 7, 7, 6);
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x + 17, y + 5, 7, 7);
+    return;
+  }
+  if (kind === "stonePath") {
+    ctx.fillStyle = "rgba(75, 65, 62, 0.25)";
+    ctx.fillRect(x + 4, y + 16, 24, 8);
+    ctx.fillStyle = "#c7ccd4";
+    ctx.fillRect(x + 7, y + 17, 7, 4);
+    ctx.fillRect(x + 17, y + 19, 8, 4);
+    return;
+  }
+  if (kind === "flag") {
+    pixelRect(x + 8, y + 3, 5, 29, "#8f5a3f");
+    ctx.fillStyle = "#55e8ff";
+    ctx.fillRect(x + 13, y + 4, 16, 10);
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x + 17, y + 7, 5, 4);
+    return;
+  }
+  if (kind === "marketStall") {
+    drawSoftShadow(x + 2, y + 30, 59, 6, 0.22);
+    pixelRect(x + 6, y + 13, 52, 22, "#b87955");
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 2, y + 5, 60, 11);
+    ctx.fillStyle = "#d24c63";
+    ctx.fillRect(x + 5, y + 7, 12, 7);
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x + 17, y + 7, 12, 7);
+    ctx.fillStyle = "#d24c63";
+    ctx.fillRect(x + 29, y + 7, 12, 7);
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x + 41, y + 7, 12, 7);
+    return;
+  }
+}
+
+function drawNpc(obj) {
+  const bob = Math.sin(performance.now() / 300 + obj.bob) * 2;
+  const x = obj.x;
+  const y = obj.y + bob;
+  const role = obj.role || obj.name;
+  const palette = {
+    shopkeeper: { shirt: "#fff264", hair: "#7d4d38", hat: "#d24c63" },
+    letterTarget: { shirt: "#7bdb73", hair: "#273052", hat: "#55c4ff" },
+    mayor: { shirt: "#9b5fc7", hair: "#f5ce79", hat: "#fff264" },
+    dimensionGuide: { shirt: "#8d4be0", hair: "#e9ffff", hat: "#55e8ff" },
+    dimensionMystic: { shirt: "#55e8ff", hair: "#b46dff", hat: "#ff72dc" },
+    Nico: { shirt: "#3f8fe5", hair: "#4a2f39", hat: "#55e8ff" },
+    Ari: { shirt: "#d24c63", hair: "#273052", hat: "#ff7ab5" },
+    Mina: { shirt: "#7bdb73", hair: "#8f5a3f", hat: "#fff264" }
+  };
+  const look = palette[role] || palette[obj.name] || { shirt: "#7bdb73", hair: "#273052", hat: "#f5ce79" };
+
+  drawSoftShadow(x + 4, y + 27, 20, 5, 0.25);
+  pixelRect(x + 5, y + 12, 15, 15, look.shirt);
+  ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+  ctx.fillRect(x + 8, y + 14, 8, 3);
+  pixelRect(x + 4, y + 3, 16, 12, "#f4bd8f");
+  ctx.fillStyle = look.hair;
+  ctx.fillRect(x + 3, y + 1, 18, 5);
+  ctx.fillRect(x + 4, y + 5, 4, 7);
+  if (obj.role === "shopkeeper") {
+    ctx.fillStyle = look.hat;
+    ctx.fillRect(x + 2, y - 3, 20, 5);
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(x + 8, y - 6, 8, 5);
+  }
+  if (obj.role === "mayor") {
+    ctx.fillStyle = look.hat;
+    ctx.fillRect(x + 5, y - 4, 14, 5);
+    ctx.fillStyle = "#55e8ff";
+    ctx.fillRect(x + 11, y - 7, 3, 3);
+  }
+  ctx.fillStyle = "#273052";
+  ctx.fillRect(x + 7, y + 27, 4, 6);
+  ctx.fillRect(x + 15, y + 27, 4, 6);
+  ctx.fillRect(x + 8, y + 9, 2, 2);
+  ctx.fillRect(x + 15, y + 9, 2, 2);
+}
+
+function drawPlayer() {
+  const x = player.x;
+  const y = player.y;
+  const legOffset = player.moving ? [0, 2, 0, -2][player.frame] : 0;
+  const blinking = playerInvulnerableTimer > 0 && Math.floor(performance.now() / 80) % 2 === 0;
+
+  ctx.save();
+  if (blinking) ctx.globalAlpha = 0.45;
+
+  if (player.isSwimming) {
+    ctx.strokeStyle = "rgba(233, 255, 255, 0.75)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(x + 12, y + 25, 18, 7, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  if (player.levelGlowTimer > 0) {
+    const pulse = 0.35 + Math.sin(performance.now() / 80) * 0.18;
+    ctx.fillStyle = `rgba(255, 242, 100, ${pulse})`;
+    ctx.fillRect(x - 8, y - 8, player.width + 16, player.height + 16);
+    ctx.fillStyle = "rgba(85, 232, 255, 0.34)";
+    ctx.fillRect(x - 2, y - 14, player.width + 4, 5);
+    ctx.fillRect(x + 3, y + player.height + 4, player.width - 6, 4);
+  }
+
+  drawSoftShadow(x + 3, y + 25, 22, 5, 0.25);
+  pixelRect(x + 5, y + 12, 17, 14, "#313a78");
+  ctx.fillStyle = "#55e8ff";
+  ctx.fillRect(x + 8, y + 14, 11, 4);
+  ctx.fillStyle = "#f4bd8f";
+  ctx.fillRect(x + 7, y + 4, 14, 10);
+  ctx.fillStyle = "#273052";
+  ctx.fillRect(x + 5, y + 2, 18, 5);
+  ctx.fillRect(x + 4, y + 6, 5, 8);
+  ctx.fillStyle = "#5ad6e7";
+  ctx.fillRect(x + 7, y, 12, 5);
+  ctx.fillRect(x + 4, y + 5, 5, 7);
+  ctx.fillStyle = "#fff264";
+  ctx.fillRect(x + 18, y + 1, 3, 3);
+
+  ctx.fillStyle = "#273052";
+  ctx.fillRect(x + 7, y + 25 + legOffset, 5, 6);
+  ctx.fillRect(x + 16, y + 25 - legOffset, 5, 6);
+  ctx.fillStyle = "#f4bd8f";
+  ctx.fillRect(x + 3, y + 15, 4, 8);
+  ctx.fillRect(x + 21, y + 15, 4, 8);
+
+  if (player.direction === "up") {
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 9, y + 6, 10, 2);
+  } else if (player.direction === "down") {
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 11, y + 9, 2, 2);
+    ctx.fillRect(x + 17, y + 9, 2, 2);
+  } else if (player.direction === "left") {
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 9, y + 9, 2, 2);
+  } else {
+    ctx.fillStyle = "#273052";
+    ctx.fillRect(x + 19, y + 9, 2, 2);
+  }
+
+  if (attackTimer > 0 || weaponCooldownTimer > 0) {
+    ctx.fillStyle = "#e9ffff";
+    if (player.direction === "left") ctx.fillRect(x - 5, y + 15, 9, 3);
+    else if (player.direction === "right") ctx.fillRect(x + 22, y + 15, 9, 3);
+    else if (player.direction === "up") ctx.fillRect(x + 13, y + 5, 3, 10);
+    else ctx.fillRect(x + 13, y + 22, 3, 10);
+  }
+
+  ctx.restore();
+}
+
+const drawEnemyBeforeVisualPatch = drawEnemy;
+drawEnemy = function drawEnemyVisualUpgrade(obj) {
+  if (obj.boss) {
+    const pulse = 0.16 + Math.sin(performance.now() / 180) * 0.06;
+    ctx.fillStyle = `rgba(255, 79, 98, ${pulse})`;
+    ctx.fillRect(obj.x - 10, obj.y - 12, obj.width + 20, obj.height + 22);
+    ctx.fillStyle = "rgba(255, 242, 100, 0.22)";
+    ctx.fillRect(obj.x + obj.width / 2 - 4, obj.y - 18, 8, 8);
+  }
+  drawEnemyBeforeVisualPatch(obj);
+  if (obj.kind === "slime" || obj.kind === "slimeVerde" || obj.kind === "slimeAzul" || obj.kind === "slimeVermelho" || obj.kind === "reiSlime") {
+    ctx.fillStyle = "rgba(233, 255, 255, 0.55)";
+    ctx.fillRect(obj.x + 7, obj.y + 8, 6, 3);
+  }
+  if (obj.kind === "miniDragao") {
+    ctx.fillStyle = "#fff264";
+    ctx.fillRect(obj.x + 5, obj.y + 6, 5, 3);
+  }
+};
+
+function outdoorDecor(tileX, tileY, kind, solid = false, widthTiles = 1, heightTiles = 1) {
+  return {
+    type: "outdoorDecor",
+    kind,
+    x: tileX * TILE,
+    y: tileY * TILE,
+    width: widthTiles * TILE,
+    height: heightTiles * TILE,
+    solid
+  };
+}
+
+function interiorFurniture(tileX, tileY, kind, solid = false, widthTiles = 1, heightTiles = 1, message = "") {
+  return {
+    type: "furniture",
+    kind,
+    x: tileX * TILE,
+    y: tileY * TILE,
+    width: widthTiles * TILE,
+    height: heightTiles * TILE,
+    solid,
+    message
+  };
+}
+
+villageObjects.push(
+  outdoorDecor(29, 22, "lantern", true), outdoorDecor(37, 22, "lantern", true),
+  outdoorDecor(29, 26, "lantern", true), outdoorDecor(37, 26, "lantern", true),
+  outdoorDecor(32, 20, "stonePath"), outdoorDecor(36, 20, "stonePath"), outdoorDecor(33, 27, "stonePath"),
+  outdoorDecor(25, 32, "flowerPot"), outdoorDecor(28, 32, "barrel", true), outdoorDecor(41, 5, "crate", true),
+  outdoorDecor(44, 5, "flowerPot"), outdoorDecor(43, 11, "marketStall", true, 2, 1),
+  outdoorDecor(23, 7, "flag", true), outdoorDecor(38, 7, "flag", true),
+  outdoorDecor(21, 28, "barrel", true), outdoorDecor(39, 28, "crate", true), outdoorDecor(48, 31, "flowerPot"),
+  outdoorDecor(55, 31, "lantern", true), outdoorDecor(59, 31, "barrel", true), outdoorDecor(72, 33, "flag", true)
+);
+
+homeObjects.push(
+  interiorFurniture(8, 2, "window", false, 2, 1), interiorFurniture(16, 2, "painting", false, 2, 1),
+  interiorFurniture(6, 6, "chair", true), interiorFurniture(15, 8, "chair", true),
+  interiorFurniture(18, 7, "rugSmall", false, 4, 3), interiorFurniture(20, 3, "armoire", true, 2, 3),
+  interiorFurniture(22, 12, "stove", true, 2, 2), interiorFurniture(6, 12, "barrel", true),
+  interiorFurniture(10, 12, "vase", true), interiorFurniture(13, 3, "lamp", false),
+  interiorFurniture(19, 13, "shelf", false, 2, 1)
+);
+
+shopInteriorObjects.push(
+  interiorFurniture(6, 3, "window", false, 2, 1), interiorFurniture(18, 3, "painting", false, 2, 1),
+  interiorFurniture(4, 11, "crate", true), interiorFurniture(6, 11, "barrel", true), interiorFurniture(19, 11, "vase", true),
+  interiorFurniture(12, 9, "rugSmall", false, 5, 2), interiorFurniture(22, 5, "lamp", false),
+  interiorFurniture(2, 13, "shelf", false, 2, 1), interiorFurniture(26, 13, "shelf", false, 2, 1)
+);
+
+mayorInteriorObjects.push(
+  interiorFurniture(8, 2, "painting", false, 2, 1), interiorFurniture(18, 2, "window", false, 2, 1),
+  interiorFurniture(8, 9, "chair", true), interiorFurniture(20, 9, "chair", true),
+  interiorFurniture(12, 10, "rugSmall", false, 5, 3), interiorFurniture(23, 12, "armoire", true, 2, 3),
+  interiorFurniture(7, 13, "vase", true), interiorFurniture(14, 3, "lamp", false)
+);
+
+if (currentScene === "home") objects = homeObjects;
+else if (currentScene === "shopInterior") objects = shopInteriorObjects;
+else if (currentScene === "mayorInterior") objects = mayorInteriorObjects;
+else if (currentScene === "crystalDimension") objects = crystalDimensionObjects;
+else objects = villageObjects;
+colliders = objects.filter((obj) => obj.solid);
+interactables = objects.filter((obj) => obj.message);
+
+/* ==================================================
+   Eternal Rift - Visual upgrade V2
+   Foco: vila mais rica, interiores aconchegantes e sprites mais legiveis.
+   Tudo continua em Canvas 2D puro, sem bibliotecas externas.
+   ================================================== */
+
+const VISUAL_V2 = {
+  grassA: "#7ed36c",
+  grassB: "#8de57a",
+  grassC: "#6fbe5c",
+  darkGrass: "#276b46",
+  outline: "#273052",
+  woodDark: "#744631",
+  wood: "#a66a43",
+  woodLight: "#d59a63",
+  stoneDark: "#6d655f",
+  stone: "#b6aaa0",
+  cream: "#f2d4a0",
+  gold: "#fff264",
+  blue: "#55c4ff",
+  red: "#d24c63"
+};
+
+function visualHashV2(x, y, salt = 0) {
+  const raw = Math.sin(x * 91.73 + y * 283.11 + salt * 17.37) * 10000;
+  return raw - Math.floor(raw);
+}
+
+function fillPixelV2(x, y, width, height, color) {
+  ctx.fillStyle = color;
+  ctx.fillRect(Math.round(x), Math.round(y), Math.round(width), Math.round(height));
+}
+
+function outlinePixelV2(x, y, width, height, fill, outline = VISUAL_V2.outline) {
+  fillPixelV2(x, y, width, height, outline);
+  if (width > 4 && height > 4) fillPixelV2(x + 2, y + 2, width - 4, height - 4, fill);
+}
+
+function drawLeafClusterV2(x, y, color, light) {
+  fillPixelV2(x + 4, y + 13, 24, 15, VISUAL_V2.outline);
+  fillPixelV2(x + 0, y + 19, 32, 18, VISUAL_V2.outline);
+  fillPixelV2(x + 7, y + 3, 20, 17, VISUAL_V2.outline);
+  fillPixelV2(x + 5, y + 14, 22, 13, color);
+  fillPixelV2(x + 2, y + 20, 28, 15, color);
+  fillPixelV2(x + 8, y + 5, 18, 14, color);
+  fillPixelV2(x + 8, y + 11, 9, 5, light);
+  fillPixelV2(x + 19, y + 20, 8, 5, light);
+  fillPixelV2(x + 5, y + 28, 7, 4, "rgba(24, 78, 45, 0.45)");
+}
+
+function drawGrassBladeV2(x, y, ox, oy, color) {
+  fillPixelV2(x + ox, y + oy + 5, 2, 5, color);
+  fillPixelV2(x + ox + 2, y + oy + 2, 2, 8, color);
+  fillPixelV2(x + ox + 4, y + oy + 6, 2, 4, color);
+}
+
+drawGrass = function drawGrassVisualV2(x, y, tileX, tileY) {
+  const h = visualHashV2(tileX, tileY, 1);
+  const base = h < 0.28 ? VISUAL_V2.grassA : h < 0.63 ? VISUAL_V2.grassB : VISUAL_V2.grassC;
+  fillPixelV2(x, y, TILE, TILE, base);
+  fillPixelV2(x, y, TILE, 2, "rgba(255,255,210,0.08)");
+  if (visualHashV2(tileX, tileY, 2) > 0.32) drawGrassBladeV2(x, y, 6, 18, "#2f8b55");
+  if (visualHashV2(tileX, tileY, 3) > 0.58) drawGrassBladeV2(x, y, 22, 7, "#3f9c5f");
+  if (visualHashV2(tileX, tileY, 4) > 0.78) {
+    fillPixelV2(x + 12, y + 12, 2, 2, "#fff264");
+    fillPixelV2(x + 16, y + 14, 2, 2, "#ff7ab5");
+    fillPixelV2(x + 19, y + 13, 2, 2, "#e9ffff");
+  }
+  if (visualHashV2(tileX, tileY, 5) > 0.88) {
+    fillPixelV2(x + 8, y + 25, 8, 2, "rgba(38, 105, 69, 0.18)");
+  }
+};
+
+drawForestGrass = function drawForestGrassVisualV2(x, y, tileX, tileY) {
+  const base = visualHashV2(tileX, tileY, 6) < 0.5 ? "#62b957" : "#59aa51";
+  fillPixelV2(x, y, TILE, TILE, base);
+  fillPixelV2(x, y + 25, TILE, 7, "rgba(18, 66, 39, 0.20)");
+  drawGrassBladeV2(x, y, 4, 7, "#1f6b43");
+  drawGrassBladeV2(x, y, 19, 17, "#27794b");
+  if (visualHashV2(tileX, tileY, 7) > 0.7) {
+    fillPixelV2(x + 11, y + 23, 8, 2, "#bdf25a");
+    fillPixelV2(x + 14, y + 20, 2, 6, "#bdf25a");
+  }
+};
+
+drawDirt = function drawDirtVisualV2(x, y, tileX, tileY) {
+  const base = visualHashV2(tileX, tileY, 10) < 0.42 ? "#a96345" : "#b57350";
+  fillPixelV2(x, y, TILE, TILE, base);
+  fillPixelV2(x, y + 28, TILE, 4, "rgba(81, 49, 38, 0.24)");
+  fillPixelV2(x + 3, y + 5, 12, 3, "rgba(255, 221, 162, 0.15)");
+  fillPixelV2(x + 19, y + 18, 9, 3, "rgba(255, 221, 162, 0.12)");
+  if (visualHashV2(tileX, tileY, 11) > 0.36) fillPixelV2(x + 6, y + 17, 5, 3, "#735044");
+  if (visualHashV2(tileX, tileY, 12) > 0.42) fillPixelV2(x + 23, y + 7, 4, 2, "#dba36b");
+  if (visualHashV2(tileX, tileY, 13) > 0.73) fillPixelV2(x + 14, y + 25, 3, 2, "#efe0bb");
+};
+
+drawPlaza = function drawPlazaVisualV2(x, y, tileX, tileY) {
+  const base = visualHashV2(tileX, tileY, 20) < 0.5 ? "#e8c98e" : "#dcbc7d";
+  fillPixelV2(x, y, TILE, TILE, base);
+  ctx.strokeStyle = "rgba(81, 62, 52, 0.56)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 0.5, y + 0.5, TILE - 1, TILE - 1);
+  fillPixelV2(x + 4, y + 4, 9, 3, "rgba(255, 249, 219, 0.30)");
+  if (visualHashV2(tileX, tileY, 21) > 0.5) fillPixelV2(x + 18, y + 20, 8, 3, "rgba(116, 85, 64, 0.22)");
+  if ((tileX + tileY) % 4 === 0) fillPixelV2(x + 1, y + 1, 4, 4, "rgba(255, 242, 100, 0.12)");
+};
+
+drawWater = function drawWaterVisualV2(x, y, tileX, tileY) {
+  const t = performance.now() / 520;
+  const waveA = Math.sin(t + tileX * 0.7 + tileY * 0.35) * 2;
+  const waveB = Math.cos(t * 0.8 + tileX * 0.4) * 1.5;
+  fillPixelV2(x, y, TILE, TILE, (tileX + tileY) % 2 ? "#358ed1" : "#3ca2e3");
+  fillPixelV2(x, y + 26, TILE, 6, "rgba(16, 74, 137, 0.28)");
+  fillPixelV2(x + 4, y + 8 + waveA, 10, 2, "rgba(196, 245, 255, 0.78)");
+  fillPixelV2(x + 17, y + 17 - waveB, 11, 2, "rgba(137, 224, 255, 0.72)");
+  if (visualHashV2(tileX, tileY, 30) > 0.68) fillPixelV2(x + 10, y + 24, 5, 2, "rgba(233,255,255,0.36)");
+};
+
+drawInteriorFloor = function drawInteriorFloorVisualV2(x, y, tileX, tileY) {
+  const plank = tileY % 2 === 0;
+  const base = plank ? "#c68a56" : "#b97849";
+  fillPixelV2(x, y, TILE, TILE, base);
+  fillPixelV2(x, y + 15, TILE, 2, "rgba(70, 42, 32, 0.28)");
+  fillPixelV2(x, y + 31, TILE, 1, "rgba(70, 42, 32, 0.34)");
+  if ((tileX + tileY) % 2 === 0) fillPixelV2(x + 3, y + 5, 12, 2, "rgba(255, 224, 166, 0.14)");
+  if (visualHashV2(tileX, tileY, 41) > 0.65) fillPixelV2(x + 20, y + 22, 7, 2, "rgba(83, 52, 37, 0.22)");
+};
+
+drawInteriorWall = function drawInteriorWallVisualV2(x, y, tileX, tileY) {
+  const top = tileY === 0;
+  fillPixelV2(x, y, TILE, TILE, top ? "#8fb5d6" : "#706078");
+  fillPixelV2(x, y + 26, TILE, 6, top ? "#273052" : "#51445c");
+  if ((tileX + tileY) % 3 === 0) fillPixelV2(x + 5, y + 7, 10, 3, "rgba(241, 251, 255, 0.20)");
+  if ((tileX + tileY) % 4 === 0) fillPixelV2(x + 18, y + 18, 8, 3, "rgba(255, 236, 180, 0.14)");
+};
+
+drawRug = function drawRugVisualV2(x, y, tileX, tileY) {
+  fillPixelV2(x, y, TILE, TILE, (tileX + tileY) % 2 === 0 ? "#b63e58" : "#95334f");
+  fillPixelV2(x, y, TILE, 3, "#6f2a45");
+  fillPixelV2(x, y + TILE - 3, TILE, 3, "#6f2a45");
+  fillPixelV2(x + 7, y + 8, 18, 4, "rgba(255, 242, 100, 0.30)");
+  fillPixelV2(x + 11, y + 17, 10, 7, "rgba(255, 220, 155, 0.24)");
+};
+
+const drawMapBeforeVisualV2 = drawMap;
+drawMap = function drawMapWithVisualV2() {
+  drawMapBeforeVisualV2();
+  drawSceneGroundOverlayV2();
+};
+
+function drawSceneGroundOverlayV2() {
+  if (currentScene === "village") {
+    drawVillageGroundDetailsV2();
+    return;
+  }
+  if (currentScene === "home" || currentScene === "shopInterior" || currentScene === "mayorInterior") {
+    drawInteriorRoomBackdropV2(currentScene);
+  }
+}
+
+function drawVillageGroundDetailsV2() {
+  const details = [
+    [30.5, 20.5, "flowerBlue"], [36.4, 20.3, "flowerPink"], [28.2, 27.1, "flowerYellow"], [39.2, 27.4, "flowerBlue"],
+    [25.2, 22.2, "stoneBits"], [41.5, 22.7, "stoneBits"], [32.3, 27.6, "grassPatch"], [36.1, 27.8, "grassPatch"],
+    [23.2, 32.2, "flowerPink"], [47.6, 29.8, "flowerYellow"], [61.4, 33.4, "grassPatch"], [72.5, 36.4, "stoneBits"],
+    [55.5, 28.5, "reed"], [62.8, 25.5, "reed"], [66.2, 22.6, "waterLily"], [36.2, 32.8, "waterLily"]
+  ];
+  for (const [tx, ty, kind] of details) {
+    const x = tx * TILE;
+    const y = ty * TILE;
+    if (x < camera.x - 48 || x > camera.x + canvas.width + 48 || y < camera.y - 48 || y > camera.y + canvas.height + 48) continue;
+    if (kind === "flowerBlue") drawTinyFlowerPatchV2(x, y, "#55c4ff");
+    if (kind === "flowerPink") drawTinyFlowerPatchV2(x, y, "#ff7ab5");
+    if (kind === "flowerYellow") drawTinyFlowerPatchV2(x, y, "#fff264");
+    if (kind === "stoneBits") drawStoneBitsV2(x, y);
+    if (kind === "grassPatch") drawGrassPatchV2(x, y);
+    if (kind === "reed") drawReedsV2(x, y);
+    if (kind === "waterLily") drawWaterLilyV2(x, y);
+  }
+}
+
+function drawTinyFlowerPatchV2(x, y, color) {
+  fillPixelV2(x + 6, y + 18, 3, 8, "#26794d");
+  fillPixelV2(x + 14, y + 14, 3, 9, "#26794d");
+  fillPixelV2(x + 22, y + 20, 3, 7, "#26794d");
+  fillPixelV2(x + 4, y + 14, 7, 5, color);
+  fillPixelV2(x + 12, y + 10, 8, 6, color);
+  fillPixelV2(x + 20, y + 17, 7, 5, color);
+  fillPixelV2(x + 15, y + 12, 2, 2, "#fff3d6");
+}
+
+function drawStoneBitsV2(x, y) {
+  fillPixelV2(x + 5, y + 18, 9, 4, "rgba(39, 48, 82, 0.20)");
+  fillPixelV2(x + 7, y + 16, 7, 4, "#a4a7a8");
+  fillPixelV2(x + 19, y + 12, 8, 5, "#c8d0d8");
+  fillPixelV2(x + 21, y + 17, 4, 2, "#777e87");
+}
+
+function drawGrassPatchV2(x, y) {
+  drawGrassBladeV2(x, y, 6, 13, "#236f48");
+  drawGrassBladeV2(x, y, 14, 17, "#2e844e");
+  drawGrassBladeV2(x, y, 23, 11, "#3fa164");
+}
+
+function drawReedsV2(x, y) {
+  fillPixelV2(x + 8, y + 9, 3, 20, "#26794d");
+  fillPixelV2(x + 15, y + 6, 3, 22, "#2f8b60");
+  fillPixelV2(x + 22, y + 11, 3, 18, "#26794d");
+  fillPixelV2(x + 14, y + 5, 5, 3, "#b87955");
+}
+
+function drawWaterLilyV2(x, y) {
+  fillPixelV2(x + 8, y + 16, 18, 6, "rgba(28, 111, 85, 0.62)");
+  fillPixelV2(x + 14, y + 12, 5, 5, "#ff7ab5");
+  fillPixelV2(x + 18, y + 14, 4, 4, "#fff3d6");
+}
+
+function drawInteriorRoomBackdropV2(scene) {
+  fillPixelV2(camera.x, camera.y, canvas.width, 96, "rgba(44, 37, 58, 0.10)");
+  fillPixelV2(32, 32, HOME_WIDTH - 64, 20, "rgba(241, 251, 255, 0.10)");
+  fillPixelV2(32, 94, HOME_WIDTH - 64, 5, "rgba(39, 48, 82, 0.45)");
+  fillPixelV2(64, 76, 96, 10, "rgba(255, 242, 100, 0.12)");
+  fillPixelV2(HOME_WIDTH - 160, 74, 96, 10, "rgba(85, 196, 255, 0.10)");
+
+  if (scene === "home") {
+    drawFloorRugOverlayV2(9 * TILE, 11 * TILE, 8 * TILE, 4 * TILE, "#9d3555", "#d24c63");
+    drawFloorRugOverlayV2(20 * TILE, 13 * TILE, 5 * TILE, 3 * TILE, "#315a78", "#55c4ff");
+  } else if (scene === "shopInterior") {
+    drawFloorRugOverlayV2(8 * TILE, 10 * TILE, 12 * TILE, 3 * TILE, "#674261", "#9b5fc7");
+    fillPixelV2(3 * TILE, 4 * TILE, 24 * TILE, 4, "rgba(255, 242, 100, 0.11)");
+  } else if (scene === "mayorInterior") {
+    drawFloorRugOverlayV2(9 * TILE, 8 * TILE, 12 * TILE, 5 * TILE, "#6b2d4a", "#d24c63");
+    fillPixelV2(4 * TILE, 3 * TILE, 22 * TILE, 4, "rgba(255, 242, 100, 0.13)");
+  }
+}
+
+function drawFloorRugOverlayV2(x, y, width, height, border, fill) {
+  fillPixelV2(x, y, width, height, border);
+  fillPixelV2(x + 6, y + 6, width - 12, height - 12, fill);
+  fillPixelV2(x + width / 2 - 20, y + height / 2 - 4, 40, 8, "rgba(255, 242, 100, 0.28)");
+  fillPixelV2(x + 10, y + 10, 10, 5, "rgba(255, 255, 255, 0.16)");
+  fillPixelV2(x + width - 22, y + height - 16, 10, 5, "rgba(39, 48, 82, 0.18)");
+}
+
+function drawRoofTilesV2(x, y, width, roofColor) {
+  fillPixelV2(x - 8, y + 15, width + 16, 33, VISUAL_V2.outline);
+  fillPixelV2(x - 4, y + 18, width + 8, 26, roofColor);
+  for (let rx = x; rx < x + width; rx += 16) {
+    fillPixelV2(rx, y + 21, 10, 5, "rgba(255, 245, 210, 0.18)");
+    fillPixelV2(rx + 8, y + 34, 11, 4, "rgba(67, 35, 49, 0.16)");
+  }
+  fillPixelV2(x - 4, y + 42, width + 8, 5, "rgba(53, 31, 43, 0.24)");
+}
+
+drawHouse = function drawHouseVisualV2(obj) {
+  const x = obj.x;
+  const y = obj.y;
+  const variant = visualHashV2(Math.floor(x / TILE), Math.floor(y / TILE), obj.title?.length || 1);
+  const roofColor = variant < 0.22 ? "#c94a5c" : variant < 0.45 ? "#3f8fe5" : variant < 0.7 ? "#d68045" : "#8d4be0";
+  const wallColor = variant < 0.5 ? "#e8d7b8" : "#d8c2a0";
+  drawSoftShadow(x + 8, y + 88, obj.width - 4, 10, 0.28);
+  outlinePixelV2(x + 6, y + 39, obj.width - 12, 53, wallColor);
+  for (let yy = y + 48; yy < y + 82; yy += 13) fillPixelV2(x + 10, yy, obj.width - 20, 2, "rgba(117, 85, 66, 0.18)");
+  fillPixelV2(x + 12, y + 45, 36, 4, "rgba(255,255,235,0.24)");
+  drawRoofTilesV2(x, y, obj.width, roofColor);
+  outlinePixelV2(x + 86, y + 4, 16, 27, "#a36a46");
+  fillPixelV2(x + 91, y + 8, 7, 4, "#f3c77a");
+  outlinePixelV2(x + 24, y + 60, 24, 32, "#93583d");
+  fillPixelV2(x + 39, y + 75, 3, 3, VISUAL_V2.gold);
+  fillPixelV2(x + 29, y + 88, 15, 3, "rgba(35, 31, 42, 0.30)");
+  drawHouseWindowV2(x + 72, y + 55, "#73d5ff");
+  drawHouseWindowV2(x + 12, y + 52, "#9ee6ff");
+  drawWindowBoxV2(x + 70, y + 77);
+  drawWindowBoxV2(x + 10, y + 74);
+};
+
+function drawHouseWindowV2(x, y, glass) {
+  outlinePixelV2(x, y, 25, 21, glass);
+  fillPixelV2(x + 4, y + 4, 8, 5, "#e9ffff");
+  fillPixelV2(x + 13, y + 3, 2, 16, VISUAL_V2.outline);
+  fillPixelV2(x + 3, y + 11, 19, 2, VISUAL_V2.outline);
+}
+
+function drawWindowBoxV2(x, y) {
+  fillPixelV2(x, y + 7, 30, 6, "#7d4d38");
+  fillPixelV2(x + 3, y + 3, 5, 5, "#ff7ab5");
+  fillPixelV2(x + 13, y + 1, 5, 6, "#fff264");
+  fillPixelV2(x + 22, y + 4, 5, 5, "#55c4ff");
+}
+
+drawPlayerHouse = function drawPlayerHouseVisualV2(obj) {
+  drawHouse(obj);
+  fillPixelV2(obj.x + 52, obj.y + 18, 24, 9, "#55e8ff");
+  fillPixelV2(obj.x + 58, obj.y + 21, 12, 3, "#fff264");
+};
+
+drawShop = function drawShopVisualV2(obj) {
+  drawHouse(obj);
+  fillPixelV2(obj.x + 20, obj.y + 45, 88, 16, VISUAL_V2.outline);
+  fillPixelV2(obj.x + 23, obj.y + 48, 82, 10, "#fff264");
+  fillPixelV2(obj.x + 31, obj.y + 51, 12, 4, "#d24c63");
+  fillPixelV2(obj.x + 58, obj.y + 51, 12, 4, "#3f8fe5");
+  fillPixelV2(obj.x + 84, obj.y + 51, 12, 4, "#7bdb73");
+};
+
+drawTree = function drawTreeVisualV2(obj) {
+  const x = obj.x;
+  const y = obj.y;
+  drawSoftShadow(x - 4, y + 55, 42, 9, 0.22);
+  outlinePixelV2(x + 12, y + 37, 11, 25, "#8f5a3f");
+  fillPixelV2(x + 15, y + 40, 3, 20, "#d99b67");
+  drawLeafClusterV2(x - 7, y - 2, "#2f9e56", "#7bdb73");
+  drawLeafClusterV2(x + 4, y - 14, "#3aaa5e", "#8de57a");
+  drawLeafClusterV2(x - 14, y + 10, "#26794d", "#6fbe5c");
+  fillPixelV2(x + 21, y + 6, 5, 4, "rgba(255, 255, 220, 0.18)");
+};
+
+const drawBedBeforeVisualV2 = drawBed;
+drawBed = function drawBedVisualV2(obj) {
+  drawSoftShadow(obj.x + 4, obj.y + obj.height - 2, obj.width - 8, 7, 0.2);
+  outlinePixelV2(obj.x, obj.y, obj.width, obj.height, "#88485b");
+  fillPixelV2(obj.x + 8, obj.y + 8, obj.width - 16, 16, "#f4e1bf");
+  fillPixelV2(obj.x + 8, obj.y + 28, obj.width - 16, obj.height - 36, "#d24c63");
+  fillPixelV2(obj.x + 15, obj.y + 38, obj.width - 30, 5, "rgba(255, 242, 100, 0.26)");
+  fillPixelV2(obj.x + 8, obj.y + obj.height - 8, obj.width - 16, 4, "rgba(73, 42, 50, 0.30)");
+};
+
+const drawTableBeforeVisualV2 = drawTable;
+drawTable = function drawTableVisualV2(obj) {
+  drawSoftShadow(obj.x + 4, obj.y + obj.height - 2, obj.width - 8, 7, 0.2);
+  outlinePixelV2(obj.x, obj.y, obj.width, obj.height, "#9b613f");
+  fillPixelV2(obj.x + 8, obj.y + 8, obj.width - 16, 15, "#d99b67");
+  fillPixelV2(obj.x + 18, obj.y + 12, 18, 8, "#fff3d6");
+  fillPixelV2(obj.x + 52, obj.y + 10, 10, 12, "#7bdb73");
+  fillPixelV2(obj.x + 55, obj.y + 7, 5, 5, "#ff7ab5");
+};
+
+const drawFurnitureBeforeVisualV2 = drawFurniture;
+drawFurniture = function drawFurnitureVisualV2(obj) {
+  const x = obj.x;
+  const y = obj.y;
+  const w = obj.width;
+  const h = obj.height;
+  const kind = obj.kind;
+  if (kind === "largeRug") return drawFloorRugOverlayV2(x, y, w, h, "#6f2a45", "#c8465e");
+  if (kind === "blueRug") return drawFloorRugOverlayV2(x, y, w, h, "#244c75", "#3f8fe5");
+  if (kind === "roundTable") {
+    drawSoftShadow(x + 5, y + 23, 43, 7, 0.2);
+    outlinePixelV2(x + 7, y + 5, 42, 29, "#9b613f");
+    fillPixelV2(x + 16, y + 10, 24, 13, "#d99b67");
+    fillPixelV2(x + 22, y + 13, 8, 6, "#fff3d6");
+    fillPixelV2(x + 34, y + 12, 5, 8, "#55c4ff");
+    return;
+  }
+  if (kind === "sofa") {
+    drawSoftShadow(x + 4, y + h - 4, w - 8, 7, 0.2);
+    outlinePixelV2(x, y + 7, w, h - 8, "#71476c");
+    fillPixelV2(x + 7, y + 13, w - 14, 12, "#9b5fc7");
+    fillPixelV2(x + 9, y + 28, w - 18, 9, "#dcb5ff");
+    fillPixelV2(x + 13, y + 15, 12, 9, "#d24c63");
+    fillPixelV2(x + w - 26, y + 15, 12, 9, "#55c4ff");
+    return;
+  }
+  if (kind === "kitchenCounter") {
+    outlinePixelV2(x, y, w, h, "#8f5a3f");
+    fillPixelV2(x + 8, y + 6, w - 16, 8, "#d99b67");
+    fillPixelV2(x + 12, y + 18, 16, 12, "#6d5c75");
+    fillPixelV2(x + 39, y + 18, 20, 10, "#c8d0d8");
+    fillPixelV2(x + 76, y + 16, 12, 12, "#d24c63");
+    return;
+  }
+  if (kind === "fireplace") {
+    outlinePixelV2(x, y, w, h, "#7b6f65");
+    fillPixelV2(x + 7, y + 7, w - 14, 11, "#b6aaa0");
+    fillPixelV2(x + 13, y + 22, w - 26, h - 30, VISUAL_V2.outline);
+    fillPixelV2(x + 19, y + 30, w - 38, 12, "#ff8a4b");
+    fillPixelV2(x + 26, y + 25, 8, 10, "#fff264");
+    return;
+  }
+  if (kind === "tallPlant") {
+    outlinePixelV2(x + 10, y + h - 18, 18, 16, "#b44d60");
+    fillPixelV2(x + 18, y + 12, 4, h - 24, "#26794d");
+    fillPixelV2(x + 8, y + 11, 15, 9, "#7bdb73");
+    fillPixelV2(x + 20, y + 4, 16, 12, "#8de57a");
+    fillPixelV2(x + 9, y + 23, 14, 8, "#3fa164");
+    return;
+  }
+  if (kind === "nightstand") {
+    outlinePixelV2(x + 4, y + 8, 24, 22, "#8f5a3f");
+    fillPixelV2(x + 10, y + 12, 12, 5, "#d99b67");
+    fillPixelV2(x + 14, y + 21, 4, 4, "#fff264");
+    return;
+  }
+  if (kind === "wallBanner") {
+    outlinePixelV2(x + 6, y + 3, w - 12, h - 4, "#d24c63");
+    fillPixelV2(x + w / 2 - 8, y + 12, 16, 5, "#fff264");
+    fillPixelV2(x + w / 2 - 4, y + 18, 8, 13, "#55c4ff");
+    return;
+  }
+  if (kind === "displayShelf") {
+    outlinePixelV2(x, y + 2, w, h - 4, "#854f38");
+    fillPixelV2(x + 7, y + 20, w - 14, 4, VISUAL_V2.outline);
+    fillPixelV2(x + 7, y + 42, w - 14, 4, VISUAL_V2.outline);
+    const goods = ["#fff264", "#55c4ff", "#d24c63", "#7bdb73", "#b46dff"];
+    for (let i = 0; i < 10; i++) {
+      fillPixelV2(x + 10 + (i % 5) * 11, y + 7 + Math.floor(i / 5) * 22, 7, 12, goods[i % goods.length]);
+    }
+    return;
+  }
+  if (kind === "cashRegister") {
+    outlinePixelV2(x + 4, y + 9, 26, 20, "#6d5c75");
+    fillPixelV2(x + 10, y + 13, 12, 5, "#55e8ff");
+    fillPixelV2(x + 10, y + 22, 3, 3, "#fff264");
+    fillPixelV2(x + 16, y + 22, 3, 3, "#d24c63");
+    return;
+  }
+  if (kind === "noticeBoard") {
+    outlinePixelV2(x + 3, y + 5, w - 6, h - 10, "#8f5a3f");
+    fillPixelV2(x + 10, y + 12, w - 20, 7, "#fff3d6");
+    fillPixelV2(x + 12, y + 24, w - 24, 6, "#f5ce79");
+    fillPixelV2(x + 14, y + 34, 18, 5, "#55c4ff");
+    return;
+  }
+  if (kind === "partition") {
+    outlinePixelV2(x, y + 4, w, h - 8, "#7d4d38");
+    for (let sx = x + 7; sx < x + w - 10; sx += 15) fillPixelV2(sx, y + 9, 7, h - 18, "#d99b67");
+    return;
+  }
+  return drawFurnitureBeforeVisualV2(obj);
+};
+
+const drawOutdoorDecorBeforeVisualV2 = drawOutdoorDecor;
+drawOutdoorDecor = function drawOutdoorDecorVisualV2(obj) {
+  const x = obj.x;
+  const y = obj.y;
+  const kind = obj.kind;
+  if (kind === "lampPost") {
+    outlinePixelV2(x + 13, y + 8, 7, 27, "#5c413c");
+    fillPixelV2(x + 2, y, 30, 24, "rgba(255, 242, 100, 0.28)");
+    outlinePixelV2(x + 7, y + 3, 18, 17, "#fff264");
+    fillPixelV2(x + 12, y + 6, 2, 12, VISUAL_V2.outline);
+    fillPixelV2(x + 18, y + 6, 2, 12, VISUAL_V2.outline);
+    return;
+  }
+  if (kind === "flowerBed") {
+    outlinePixelV2(x + 1, y + 17, wOrDefaultV2(obj, 30), 12, "#7d4d38");
+    for (let i = 0; i < 5; i++) {
+      fillPixelV2(x + 5 + i * 5, y + 12 - (i % 2), 4, 4, i % 2 ? "#fff264" : "#ff7ab5");
+      fillPixelV2(x + 6 + i * 5, y + 16, 2, 6, "#26794d");
+    }
+    return;
+  }
+  if (kind === "woodPile") {
+    drawSoftShadow(x + 2, y + 24, 30, 6, 0.2);
+    for (let i = 0; i < 3; i++) {
+      outlinePixelV2(x + 3, y + 8 + i * 7, 26, 7, "#9b613f");
+      fillPixelV2(x + 7, y + 10 + i * 7, 6, 3, "#d99b67");
+    }
+    return;
+  }
+  if (kind === "mailbox") {
+    outlinePixelV2(x + 13, y + 12, 6, 19, "#8f5a3f");
+    outlinePixelV2(x + 6, y + 6, 22, 13, "#3f8fe5");
+    fillPixelV2(x + 21, y + 10, 5, 4, "#fff264");
+    return;
+  }
+  return drawOutdoorDecorBeforeVisualV2(obj);
+};
+
+function wOrDefaultV2(obj, fallback) {
+  return obj.width || fallback;
+}
+
+drawNpc = function drawNpcVisualV2(obj) {
+  const bob = Math.sin(performance.now() / 320 + (obj.bob || 0)) * 1.6;
+  const x = obj.x;
+  const y = obj.y + bob;
+  const role = obj.role || obj.name || "villager";
+  const palette = {
+    shopkeeper: { shirt: "#fff264", vest: "#d24c63", hair: "#7d4d38", hat: "#d24c63" },
+    letterTarget: { shirt: "#7bdb73", vest: "#3f8fe5", hair: "#273052", hat: "#55c4ff" },
+    mayor: { shirt: "#9b5fc7", vest: "#fff264", hair: "#f5ce79", hat: "#fff264" },
+    dimensionGuide: { shirt: "#8d4be0", vest: "#55e8ff", hair: "#e9ffff", hat: "#55e8ff" },
+    dimensionMystic: { shirt: "#55e8ff", vest: "#b46dff", hair: "#b46dff", hat: "#ff72dc" },
+    Nico: { shirt: "#3f8fe5", vest: "#55e8ff", hair: "#4a2f39", hat: "#55e8ff" },
+    Ari: { shirt: "#d24c63", vest: "#fff264", hair: "#273052", hat: "#ff7ab5" },
+    Mina: { shirt: "#7bdb73", vest: "#fff264", hair: "#8f5a3f", hat: "#fff264" },
+    villager: { shirt: "#7bdb73", vest: "#f5ce79", hair: "#273052", hat: "#d99b67" }
+  };
+  const look = palette[role] || palette[obj.name] || palette.villager;
+  drawSoftShadow(x + 3, y + 27, 22, 5, 0.25);
+  outlinePixelV2(x + 5, y + 12, 17, 16, look.shirt);
+  fillPixelV2(x + 8, y + 15, 11, 4, look.vest);
+  outlinePixelV2(x + 4, y + 3, 17, 13, "#f4bd8f");
+  fillPixelV2(x + 3, y + 1, 19, 5, look.hair);
+  fillPixelV2(x + 4, y + 6, 4, 7, look.hair);
+  if (role === "shopkeeper") {
+    fillPixelV2(x + 2, y - 3, 21, 5, look.hat);
+    fillPixelV2(x + 8, y - 7, 8, 5, VISUAL_V2.gold);
+  }
+  if (role === "mayor") {
+    fillPixelV2(x + 5, y - 4, 14, 5, look.hat);
+    fillPixelV2(x + 10, y - 8, 5, 4, VISUAL_V2.blue);
+  }
+  fillPixelV2(x + 7, y + 28, 5, 6, VISUAL_V2.outline);
+  fillPixelV2(x + 16, y + 28, 5, 6, VISUAL_V2.outline);
+  fillPixelV2(x + 9, y + 9, 2, 2, VISUAL_V2.outline);
+  fillPixelV2(x + 16, y + 9, 2, 2, VISUAL_V2.outline);
+};
+
+drawPlayer = function drawPlayerVisualV2() {
+  const x = player.x;
+  const y = player.y;
+  const leg = player.moving ? [0, 2, 0, -2][player.frame] : 0;
+  const blinking = playerInvulnerableTimer > 0 && Math.floor(performance.now() / 80) % 2 === 0;
+  ctx.save();
+  if (blinking) ctx.globalAlpha = 0.45;
+  if (player.isSwimming) {
+    ctx.strokeStyle = "rgba(233, 255, 255, 0.75)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.ellipse(x + 12, y + 26, 18, 7, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  if (player.levelGlowTimer > 0) {
+    const pulse = 0.30 + Math.sin(performance.now() / 80) * 0.15;
+    fillPixelV2(x - 8, y - 8, player.width + 16, player.height + 16, `rgba(255, 242, 100, ${pulse})`);
+  }
+  drawSoftShadow(x + 3, y + 26, 23, 5, 0.25);
+  outlinePixelV2(x + 5, y + 12, 18, 15, "#2d3d83");
+  fillPixelV2(x + 8, y + 14, 12, 4, "#55e8ff");
+  fillPixelV2(x + 10, y + 20, 8, 5, "#3f8fe5");
+  outlinePixelV2(x + 7, y + 4, 15, 11, "#f4bd8f");
+  fillPixelV2(x + 5, y + 2, 18, 5, "#273052");
+  fillPixelV2(x + 4, y + 6, 5, 8, "#273052");
+  fillPixelV2(x + 7, y, 12, 5, "#5ad6e7");
+  fillPixelV2(x + 4, y + 5, 5, 7, "#5ad6e7");
+  fillPixelV2(x + 18, y + 1, 3, 3, VISUAL_V2.gold);
+  fillPixelV2(x + 7, y + 26 + leg, 5, 6, VISUAL_V2.outline);
+  fillPixelV2(x + 16, y + 26 - leg, 5, 6, VISUAL_V2.outline);
+  fillPixelV2(x + 3, y + 15, 4, 8, "#f4bd8f");
+  fillPixelV2(x + 22, y + 15, 4, 8, "#f4bd8f");
+  if (player.direction === "up") fillPixelV2(x + 9, y + 7, 10, 2, VISUAL_V2.outline);
+  else if (player.direction === "left") fillPixelV2(x + 9, y + 9, 2, 2, VISUAL_V2.outline);
+  else if (player.direction === "right") fillPixelV2(x + 19, y + 9, 2, 2, VISUAL_V2.outline);
+  else {
+    fillPixelV2(x + 11, y + 9, 2, 2, VISUAL_V2.outline);
+    fillPixelV2(x + 17, y + 9, 2, 2, VISUAL_V2.outline);
+  }
+  if (attackTimer > 0 || weaponCooldownTimer > 0) {
+    const weaponKey = getCurrentWeaponKey();
+    const color = weaponKey === "staff" ? "#55e8ff" : weaponKey === "bow" ? "#d99b67" : "#e9ffff";
+    fillPixelV2(player.direction === "left" ? x - 8 : player.direction === "right" ? x + 23 : x + 13, player.direction === "up" ? y + 3 : player.direction === "down" ? y + 23 : y + 15, player.direction === "left" || player.direction === "right" ? 12 : 3, player.direction === "up" || player.direction === "down" ? 12 : 3, color);
+  }
+  ctx.restore();
+};
+
+const drawEnemyBeforeVisualV2 = drawEnemy;
+drawEnemy = function drawEnemyVisualV2(obj) {
+  if (obj.boss) {
+    const pulse = 0.16 + Math.sin(performance.now() / 180) * 0.06;
+    fillPixelV2(obj.x - 12, obj.y - 14, obj.width + 24, obj.height + 26, `rgba(255, 79, 98, ${pulse})`);
+    fillPixelV2(obj.x + obj.width / 2 - 6, obj.y - 20, 12, 9, "rgba(255, 242, 100, 0.32)");
+  }
+  drawEnemyBeforeVisualV2(obj);
+  if (["slime", "slimeVerde", "slimeAzul", "slimeVermelho", "reiSlime"].includes(obj.kind)) {
+    fillPixelV2(obj.x + 7, obj.y + 7, 8, 3, "rgba(233, 255, 255, 0.70)");
+    fillPixelV2(obj.x + obj.width - 12, obj.y + 14, 4, 4, "rgba(255,255,255,0.35)");
+  }
+  if (obj.kind === "morcego") {
+    fillPixelV2(obj.x - 3, obj.y + 7, 8, 3, "#273052");
+    fillPixelV2(obj.x + obj.width - 5, obj.y + 7, 8, 3, "#273052");
+  }
+  if (obj.kind === "goblin" || obj.kind === "arqueiroGoblin") {
+    fillPixelV2(obj.x + 6, obj.y + 3, 10, 4, "#bdf25a");
+    fillPixelV2(obj.x + obj.width - 7, obj.y + 11, 5, 3, "#fff264");
+  }
+};
+
+function addVisualV2Objects(target, items) {
+  for (const item of items) {
+    if (!target.some((obj) => obj.visualV2Id === item.visualV2Id)) target.push(item);
+  }
+}
+
+function furnitureV2(id, tileX, tileY, kind, solid = false, widthTiles = 1, heightTiles = 1, message = "") {
+  const item = interiorFurniture(tileX, tileY, kind, solid, widthTiles, heightTiles, message);
+  item.visualV2Id = id;
+  return item;
+}
+
+function outdoorV2(id, tileX, tileY, kind, solid = false, widthTiles = 1, heightTiles = 1, message = "") {
+  const item = outdoorDecor(tileX, tileY, kind, solid, widthTiles, heightTiles);
+  item.visualV2Id = id;
+  if (message) item.message = message;
+  return item;
+}
+
+if (typeof window !== "undefined" && !window.ETERNAL_RIFT_VISUAL_PATCH_V2) {
+  window.ETERNAL_RIFT_VISUAL_PATCH_V2 = true;
+
+  fillHomeRect(homeMap, 9, 11, 8, 4, "I");
+  fillHomeRect(homeMap, 20, 13, 5, 3, "I");
+  fillHomeRect(shopInteriorObjects === objects ? homeMap : homeMap, 7, 13, 7, 2, "I");
+
+  addVisualV2Objects(villageObjects, [
+    outdoorV2("plaza-lamp-a", 27, 21, "lampPost", true), outdoorV2("plaza-lamp-b", 39, 21, "lampPost", true),
+    outdoorV2("plaza-lamp-c", 27, 27, "lampPost", true), outdoorV2("plaza-lamp-d", 39, 27, "lampPost", true),
+    outdoorV2("plaza-flowerbed-a", 24, 19, "flowerBed", true, 1, 1), outdoorV2("plaza-flowerbed-b", 41, 19, "flowerBed", true, 1, 1),
+    outdoorV2("plaza-flowerbed-c", 24, 28, "flowerBed", true, 1, 1), outdoorV2("plaza-flowerbed-d", 41, 28, "flowerBed", true, 1, 1),
+    outdoorV2("home-mailbox", 25, 36, "mailbox", true), outdoorV2("home-woodpile", 28, 35, "woodPile", true),
+    outdoorV2("shop-flowerbed", 43, 9, "flowerBed", true), outdoorV2("shop-mailbox", 46, 9, "mailbox", true),
+    outdoorV2("pousada-woodpile", 20, 31, "woodPile", true), outdoorV2("campo-flowerbed", 60, 34, "flowerBed", true),
+    outdoorV2("treino-lamp", 68, 44, "lampPost", true), outdoorV2("cabana-mailbox", 8, 54, "mailbox", true)
+  ]);
+
+  addVisualV2Objects(homeObjects, [
+    furnitureV2("home-wall-banner", 11, 1, "wallBanner", false, 4, 2), furnitureV2("home-window-left", 4, 2, "window", false, 2, 1),
+    furnitureV2("home-nightstand", 7, 3, "nightstand", true), furnitureV2("home-large-rug", 9, 11, "largeRug", false, 8, 4),
+    furnitureV2("home-round-table", 11, 11, "roundTable", true, 2, 1), furnitureV2("home-sofa", 2, 14, "sofa", true, 4, 2),
+    furnitureV2("home-kitchen", 20, 14, "kitchenCounter", true, 4, 1), furnitureV2("home-fireplace", 23, 5, "fireplace", true, 2, 2),
+    furnitureV2("home-tall-plant", 26, 8, "tallPlant", true, 1, 2), furnitureV2("home-partition", 2, 7, "partition", true, 4, 1),
+    furnitureV2("home-blue-rug", 20, 12, "blueRug", false, 5, 3), furnitureV2("home-notice", 16, 2, "noticeBoard", false, 3, 2)
+  ]);
+
+  addVisualV2Objects(shopInteriorObjects, [
+    furnitureV2("shop-display-left", 3, 4, "displayShelf", true, 3, 2), furnitureV2("shop-display-right", 23, 4, "displayShelf", true, 3, 2),
+    furnitureV2("shop-cash-register", 15, 5, "cashRegister", false), furnitureV2("shop-large-rug", 8, 10, "blueRug", false, 12, 3),
+    furnitureV2("shop-notice", 12, 2, "noticeBoard", false, 4, 2), furnitureV2("shop-sofa", 3, 14, "sofa", true, 4, 2),
+    furnitureV2("shop-tall-plant", 25, 12, "tallPlant", true, 1, 2), furnitureV2("shop-partition", 21, 13, "partition", true, 5, 1)
+  ]);
+
+  addVisualV2Objects(mayorInteriorObjects, [
+    furnitureV2("mayor-banner", 12, 1, "wallBanner", false, 5, 2), furnitureV2("mayor-display-left", 2, 5, "displayShelf", true, 3, 2),
+    furnitureV2("mayor-display-right", 25, 5, "displayShelf", true, 3, 2), furnitureV2("mayor-large-rug", 9, 8, "largeRug", false, 12, 5),
+    furnitureV2("mayor-sofa", 3, 14, "sofa", true, 5, 2), furnitureV2("mayor-fireplace", 23, 11, "fireplace", true, 2, 2),
+    furnitureV2("mayor-notice", 11, 3, "noticeBoard", false, 4, 2), furnitureV2("mayor-tall-plant", 26, 14, "tallPlant", true, 1, 2)
+  ]);
+
+  if (currentScene === "home") objects = homeObjects;
+  else if (currentScene === "shopInterior") objects = shopInteriorObjects;
+  else if (currentScene === "mayorInterior") objects = mayorInteriorObjects;
+  else if (currentScene === "crystalDimension") objects = crystalDimensionObjects;
+  else objects = villageObjects;
+  colliders = objects.filter((obj) => obj.solid);
+  interactables = objects.filter((obj) => obj.message);
+}

@@ -2197,3 +2197,40 @@ canvas {
     max-height: calc(100dvh - 32px);
   }
 }
+
+
+/* Eternal Rift visual polish: mantém HUD e mobile, só deixa a moldura mais caprichada. */
+.game-panel {
+  background:
+    radial-gradient(circle at 50% 0%, rgba(255, 242, 100, 0.10), transparent 34%),
+    #0f130f;
+}
+
+canvas {
+  background: #83d873;
+}
+
+.start-content,
+.panel,
+.info-panel,
+.dialog,
+.pause-menu {
+  image-rendering: pixelated;
+}
+
+/* Eternal Rift visual polish V2 */
+.game-panel {
+  border-color: #14172d;
+  background: #101724;
+  box-shadow:
+    0 0 0 4px rgba(245, 206, 121, 0.28),
+    0 24px 60px rgba(0, 0, 0, 0.36);
+}
+
+canvas {
+  background: #7ed36c;
+}
+
+.start-content h1 {
+  text-shadow: 0 3px 0 rgba(0, 0, 0, 0.32);
+}
